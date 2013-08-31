@@ -113,10 +113,7 @@ function onHeroSpawn(hero) {
 	// Check if this person is a zombie
 	if(isZombie[playerID]) {
 		// Make this person into a zombie
-		becomeZombie(client);
-		
-		var hero = grabHero(client);
-		if(!hero) return;
+		becomeZombie(hero);
 		
 		// Teleport the hero on the next frame, if we didn't wait until the next frame,
 		//    dota would teleport them back to the fountain :(
@@ -156,7 +153,7 @@ function onHeroSpawn(hero) {
 				// Make sure they haven't turned already
 				if(!isZombie[playerID]) {
 					// Become a zombie!
-					becomeZombie(client);
+					becomeZombie(hero);
 				}
 			}, 1000 * (ZOMBIE_INFECT_DELAY));
 			
@@ -272,8 +269,12 @@ function CmdZombie(client) {
 	
 	// Check if this player was infected, and make sure they aren't already a zombie
 	if(isInfected[playerID] != null && !isZombie[playerID]) {
+		// Grab their hero
+		var hero = grabHero(client);
+		if(!hero) return;
+		
 		// Turn into a zombie
-		becomeZombie(client);
+		becomeZombie(hero);
 	}
 }
 
@@ -354,6 +355,7 @@ function onEntityHurt(event) {
 		// Check if they will die as a result of this
 		if(ent.netprops.m_iHealth == 0) {
 			var playerID = ent.netprops.m_iPlayerID;
+			if(playerID == -1) return;
 			
 			// Grab client
 			var client = dota.findClientByPlayerID(playerID);
@@ -386,7 +388,7 @@ function onEntityHurt(event) {
 				
 				// Become a zombie in 1 second
 				timers.setTimeout(function() {
-					becomeZombie(client);
+					becomeZombie(ent);
 				}, 5100)
 			}
 		}
@@ -415,11 +417,17 @@ function giveGold(playerID, amount) {
 	playerManager.netprops.m_iUnreliableGoldDire[playerID] +=  amount;
 }
 
-function becomeZombie(client) {
-	if (!client) return;
-	
-    var hero = grabHero(client);
+function becomeZombie(hero) {
+	// Validate hero
 	if(!hero) return;
+	
+	// Grab playerID
+	var playerID = hero.netprops.m_iPlayerID;
+	if(playerID == -1) return;
+	
+	// Grab client
+	var client = dota.findClientByPlayerID(playerID);
+	if (!client) return;
 	
 	// Change team to dire
 	becomeDire(client);
