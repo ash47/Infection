@@ -300,14 +300,14 @@ function becomeDire(client) {
 	playerManager.netprops.m_iPlayerTeams[client.netprops.m_iPlayerID] = dota.TEAM_DIRE;
 	
 	// Change client's team
-	client.changeTeam(dota.TEAM_DIRE);
+	//client.changeTeam(dota.TEAM_DIRE);
 	client.netprops.m_iTeamNum = dota.TEAM_DIRE;
 	
 	var hero = grabHero(client);
 	if(!hero) return;
 	
 	// Change hero's team
-	hero.changeTeam(dota.TEAM_DIRE);
+	//hero.changeTeam(dota.TEAM_DIRE);
 	hero.netprops.m_iTeamNum = dota.TEAM_DIRE;
 }
 
@@ -318,7 +318,7 @@ function becomeRadiant(client) {
 	playerManager.netprops.m_iPlayerTeams[client.netprops.m_iPlayerID] = dota.TEAM_RADIANT;
 	
 	// Change client's team
-	client.changeTeam(dota.TEAM_RADIANT);
+	//client.changeTeam(dota.TEAM_RADIANT);
 	client.netprops.m_iTeamNum = dota.TEAM_RADIANT;
 	
 	// Check if they have a hero yet
@@ -326,7 +326,7 @@ function becomeRadiant(client) {
 	if(!hero) return;
 	
 	// Change hero's team
-	hero.changeTeam(dota.TEAM_RADIANT);
+	//hero.changeTeam(dota.TEAM_RADIANT);
 	hero.netprops.m_iTeamNum = dota.TEAM_RADIANT;
 }
 
