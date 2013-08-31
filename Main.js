@@ -513,9 +513,9 @@ function setZombieStats(hero) {
 	var level = hero.netprops.m_iCurrentLevel || 1;
 	
 	// Set stats
-	hero.netprops.m_flStrength = 30		+ 2 * level;
-	hero.netprops.m_flAgility = 30		+ 2 * level;
-	hero.netprops.m_flIntellect = 30	+ 2 * level;
+	hero.netprops.m_flStrength = 30		+ 4 * level;
+	hero.netprops.m_flAgility = 30		+ 4 * level;
+	hero.netprops.m_flIntellect = 30	+ 4 * level;
 	
 	// Modify Stats
 	hero.keyvalues['MovementSpeed'] = 200;
@@ -535,6 +535,9 @@ function setZombieStats(hero) {
 	// Workout what level our skills should be at
 	var skillLevel = Math.floor(level/4);
 	if(skillLevel > 3){ skillLevel = 3; }
+	
+	// Ensure this hero has skills
+	if(!hero.hasSkills) return;
 	
 	// Mod the skills
 	hero.leapSkill.netprops.m_iLevel = skillLevel+1;
