@@ -27,6 +27,7 @@ game.hookEvent("dota_player_gained_level", onPlayerGainedLevel);
 
 // Add console commands
 console.addClientCommand('zombie', CmdZombie);
+console.addClientCommand('checkgold', CmdCheckGold);
 
 // Store mid towers on dire team
 var tower1, tower2, tower3;
@@ -69,15 +70,33 @@ function onMapStart() {
 	// Stop undying from being picked
 	dota.setHeroAvailable(85 , false);
 	
-	// Precache particles + models needed for the zombie
+	// Precache particles + models needed for the zombies
 	dota.loadParticleFile('particles/units/heroes/hero_mirana.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_undying.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_broodmother.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_meepo.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_furion.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_antimage.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_tusk.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_magnataur.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_morphling.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_faceless_void.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_faceless_void.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_riki.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_slark.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_dragon_knight.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_crystalmaiden.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_pudge.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_life_stealer.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_alchemist.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_bristleback.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_centaur.pcf');
+	
 	game.precacheModel('models/heroes/undying/undying_flesh_golem.mdl');
 	game.precacheModel('models/heroes/undying/undying_minion.mdl');
 	game.precacheModel('models/heroes/undying/undying_minion_torso.mdl');
+	game.precacheModel('models/heroes/undying/undying_tower.mdl');
+	game.precacheModel('models/heroes/pudge/pudge_hook.mdl');
 	
 	// Grab the player manager
 	playerManager = game.findEntityByClassname(-1, "dota_player_manager");
@@ -109,6 +128,9 @@ function onHeroSpawn(hero) {
 	// Grab client
 	var client = dota.findClientByPlayerID(playerID);
 	if(!client) return;
+	
+	// Gold patch
+	goldPatch(client);
 	
 	// Check if this person is a zombie
 	if(isZombie[playerID]) {
@@ -159,6 +181,9 @@ function onHeroSpawn(hero) {
 			
 			// This player is no longer infected
 			isInfected[playerID] = false;
+		} else if(isInfected[playerID] == null) {
+			client.printToChat('CAREFUL: If you die, you will become a zombie!');
+			client.printToChat('If your gold is frozen, try: -checkgold');
 		}
 	}
 }
@@ -266,6 +291,7 @@ function onUnitParsed(unit, keyvalues){
 
 function CmdZombie(client) {
 	var playerID = client.netprops.m_iPlayerID;
+	if(playerID == -1) return;
 	
 	// Check if this player was infected, and make sure they aren't already a zombie
 	if(isInfected[playerID] != null && !isZombie[playerID]) {
@@ -276,6 +302,79 @@ function CmdZombie(client) {
 		// Turn into a zombie
 		becomeZombie(hero);
 	}
+}
+
+function CmdCheckGold(client) {
+	if(!client) return;
+	
+	var playerID = client.netprops.m_iPlayerID;
+	if(playerID == -1) return;
+	
+	var reliableGold, unreliableGold;
+	
+	var team = client.netprops.m_iTeamNum;
+	
+	// Read their gold, where we read depends on their team
+	if(team == dota.TEAM_RADIANT) {
+		reliableGold = playerManager.netprops.m_iReliableGoldRadiant[playerID];
+		unreliableGold = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+		
+		// Copy gold over
+		playerManager.netprops.m_iReliableGoldDire[playerID] = reliableGold;
+		playerManager.netprops.m_iUnreliableGoldDire[playerID] = unreliableGold;
+		
+		// Jump onto dire for a frame
+		playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
+		
+		// Reset back to radiant
+		timers.setTimeout(function() {
+			// Become radiant
+			becomeRadiant(client);
+			
+			// Just incase
+			playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
+		}, 1);
+	} else if(team == dota.TEAM_DIRE) {
+		reliableGold = playerManager.netprops.m_iReliableGoldDire[playerID];
+		unreliableGold = playerManager.netprops.m_iUnreliableGoldDire[playerID];
+		
+		// Copy gold over
+		playerManager.netprops.m_iReliableGoldRadiant[playerID] = reliableGold;
+		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = unreliableGold;
+		
+		// Jump onto radiant for a frame
+		playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
+		
+		// Reset back to dire
+		timers.setTimeout(function() {
+			// Become radiant
+			becomeDire(client);
+			
+			// Just incase
+			playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
+		}, 1);
+	} else {
+		return;
+	}
+	
+	// Tell client
+	client.printToChat('You have '+(reliableGold+unreliableGold)+'g');
+}
+
+var patchedGold = {};
+function goldPatch(client) {
+	if(!client) return;
+	
+	var playerID = client.netprops.m_iPlayerID;
+	if (playerID == -1) return;
+	
+	// Make sure it only runs once for each player
+	if(patchedGold[playerID]) return;
+	patchedGold[playerID] = true;
+	
+	// Set their unreliable gold right up
+	playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = 2306;
+	playerManager.netprops.m_iUnreliableGoldDire[playerID] =  2306;
 }
 
 // Allows zombies to see this unit
@@ -296,39 +395,60 @@ function removeTrueSight(unit) {
 
 function becomeDire(client) {
 	if(!client) return;
-	
-	// Change their team in the player manager
-	playerManager.netprops.m_iPlayerTeams[client.netprops.m_iPlayerID] = dota.TEAM_DIRE;
-	
-	// Change client's team
-	//client.changeTeam(dota.TEAM_DIRE);
 	client.netprops.m_iTeamNum = dota.TEAM_DIRE;
 	
-	var hero = grabHero(client);
-	if(!hero) return;
+	var playerID = client.netprops.m_iPlayerID;
+	if(playerID == -1) return;
 	
-	// Change hero's team
-	//hero.changeTeam(dota.TEAM_DIRE);
-	hero.netprops.m_iTeamNum = dota.TEAM_DIRE;
-}
-
-function becomeRadiant(client) {
-	if(!client) return;
-	
-	// Change their team in the player manager
-	playerManager.netprops.m_iPlayerTeams[client.netprops.m_iPlayerID] = dota.TEAM_RADIANT;
-	
-	// Change client's team
-	//client.changeTeam(dota.TEAM_RADIANT);
-	client.netprops.m_iTeamNum = dota.TEAM_RADIANT;
+	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
 	
 	// Check if they have a hero yet
 	var hero = grabHero(client);
 	if(!hero) return;
 	
-	// Change hero's team
-	//hero.changeTeam(dota.TEAM_RADIANT);
+	// Grab playerID
+	//var playerID = client.netprops.m_iPlayerID;
+	//if (playerID == -1) return;
+	
+	// Change team
+	hero.netprops.m_iTeamNum = dota.TEAM_DIRE;
+	
+	// Change their team in the player manager
+	
+	
+	// Copy gold over
+	/*if(playerManager.netprops.m_iUnreliableGoldDire[playerID] >= 38000) {
+		playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+	}*/
+}
+
+function becomeRadiant(client) {
+	if(!client) return;
+	client.netprops.m_iTeamNum = dota.TEAM_RADIANT;
+	
+	var playerID = client.netprops.m_iPlayerID;
+	if(playerID == -1) return;
+	
+	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
+	
+	// Check if they have a hero yet
+	var hero = grabHero(client);
+	if(!hero) return;
+	
+	// Grab playerID
+	//var playerID = client.netprops.m_iPlayerID;
+	//if (playerID == -1) return;
+	
+	// Change team
 	hero.netprops.m_iTeamNum = dota.TEAM_RADIANT;
+	
+	// Change their team in the player manager
+	
+	
+	// Check gold
+	/*if(playerManager.netprops.m_iUnreliableGoldRadiant[playerID] >= 38000) {
+		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = 2306;
+	}*/
 }
 
 function onEntityHurt(event) {
@@ -354,6 +474,8 @@ function onEntityHurt(event) {
 	if(ent.isHero()) {
 		// Check if they will die as a result of this
 		if(ent.netprops.m_iHealth == 0) {
+			if(ent.netprops.m_bIsIllusion) return;
+			
 			var playerID = ent.netprops.m_iPlayerID;
 			if(playerID == -1) return;
 			
@@ -417,6 +539,39 @@ function giveGold(playerID, amount) {
 	playerManager.netprops.m_iUnreliableGoldDire[playerID] +=  amount;
 }
 
+var leapSkills = new Array(
+	'mirana_leap',
+	'antimage_blink',
+	'tusk_snowball',
+	'magnataur_skewer',
+	'morphling_waveform',
+	'faceless_void_time_walk',
+	'riki_blink_strike',
+	'slark_pounce'
+);
+
+var trapSkills = new Array(
+	'meepo_earthbind',
+	'dragon_knight_dragon_tail',
+	'crystal_maiden_frostbite'
+);
+
+var utilSkills = new Array(
+	'pudge_meat_hook',
+	'pudge_rot',
+	'pudge_dismember',
+	'life_stealer_rage',
+	'life_stealer_infest',
+	'undying_tombstone',
+	'alchemist_acid_spray',
+	'bristleback_viscous_nasal_goo',
+	'centaur_stampede'
+);
+
+function getRandomSkill(ar) {
+	return ar[Math.floor(Math.random()*ar.length)];
+}
+
 function becomeZombie(hero) {
 	// Validate hero
 	if(!hero) return;
@@ -435,50 +590,47 @@ function becomeZombie(hero) {
 	// Remove true sight
 	removeTrueSight(hero);
 	
-	// Check for abiltities
-	if(!hero.hasSkills) {
-		// The hero now has skills
-		hero.hasSkills = true;
+	// The hero now has skills
+	hero.hasSkills = true;
+	
+	// Remove all old skills
+	for(var i=0;i<16;i++) {
+		var ab = hero.netprops.m_hAbilities[i];
 		
-		// Remove all old skills
-		for(var i=0;i<16;i++) {
-			var ab = hero.netprops.m_hAbilities[i];
-			
-			if(ab != null) {
-				dota.remove(ab);
-				hero.netprops.m_hAbilities[i] = null;
-			}
-			
+		if(ab != null) {
+			dota.remove(ab);
+			hero.netprops.m_hAbilities[i] = null;
 		}
 		
-		// Add leap skill
-		hero.leapSkill = dota.createAbility(hero, 'mirana_leap');
-		dota.setAbilityByIndex(hero, hero.leapSkill, 0);
-		
-		// Add teleport skill
-		hero.teleportSkill = dota.createAbility(hero, 'furion_teleportation');
-		dota.setAbilityByIndex(hero, hero.teleportSkill, 1);
-		
-		// Add earthbind skill
-		hero.earthbindSkill = dota.createAbility(hero, 'meepo_earthbind');
-		dota.setAbilityByIndex(hero, hero.earthbindSkill, 2);
-		
-		// Add Life Steal
-		hero.feast = dota.createAbility(hero, 'life_stealer_feast');
-		dota.setAbilityByIndex(hero, hero.feast, 3);
-		
-		// Add spell shield
-		hero.shieldSkill = dota.createAbility(hero, 'antimage_spell_shield');
-		dota.setAbilityByIndex(hero, hero.shieldSkill, 4);
-		
-		// Add venem
-		hero.poisonSkill = dota.createAbility(hero, 'broodmother_incapacitating_bite');
-		dota.setAbilityByIndex(hero, hero.poisonSkill, 5);
-		
-		// Create ult
-		hero.mutatorSkill = dota.createAbility(hero, 'undying_flesh_golem');
-		hero.mutatorSkill.netprops.m_iLevel = 3;
 	}
+		
+	// Add leap skill
+	hero.leapSkill = dota.createAbility(hero, getRandomSkill(leapSkills));
+	dota.setAbilityByIndex(hero, hero.leapSkill, 0);
+	
+	// Add teleport skill
+	hero.teleportSkill = dota.createAbility(hero, 'furion_teleportation');
+	dota.setAbilityByIndex(hero, hero.teleportSkill, 1);
+	
+	// Add trap skill
+	hero.trapSkill = dota.createAbility(hero, getRandomSkill(trapSkills));
+	dota.setAbilityByIndex(hero, hero.trapSkill, 2);
+	
+	// Add util skill
+	hero.utilSkill = dota.createAbility(hero, getRandomSkill(utilSkills));
+	dota.setAbilityByIndex(hero, hero.utilSkill, 3);
+	
+	// Add Life Steal
+	hero.feast = dota.createAbility(hero, 'life_stealer_feast');
+	dota.setAbilityByIndex(hero, hero.feast, 4);
+	
+	// Add venem
+	hero.poisonSkill = dota.createAbility(hero, 'broodmother_incapacitating_bite');
+	dota.setAbilityByIndex(hero, hero.poisonSkill, 5);
+	
+	// Create ult
+	hero.mutatorSkill = dota.createAbility(hero, 'undying_flesh_golem');
+	hero.mutatorSkill.netprops.m_iLevel = 3;
 	
 	// Apply zombie ult
 	dota.addNewModifier(hero, hero.mutatorSkill, 'modifier_undying_flesh_golem', "undying_flesh_golem", {duration:36000});	// Apply this first so we get the correct model
@@ -549,11 +701,11 @@ function setZombieStats(hero) {
 	
 	// Mod the skills
 	hero.leapSkill.netprops.m_iLevel = skillLevel+1;
-	hero.shieldSkill.netprops.m_iLevel = skillLevel+1;
 	hero.poisonSkill.netprops.m_iLevel = skillLevel+1;
 	hero.feast.netprops.m_iLevel = skillLevel+1;
 	hero.teleportSkill.netprops.m_iLevel = skillLevel+1;
-	hero.earthbindSkill.netprops.m_iLevel = skillLevel+1;
+	hero.trapSkill.netprops.m_iLevel = skillLevel+1;
+	hero.utilSkill.netprops.m_iLevel = skillLevel+1;
 }
 
 function becomeHuman(client) {
