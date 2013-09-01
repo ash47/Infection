@@ -1,0 +1,13 @@
+{
+	"mainFields": ["Rate"], 
+	"fields": {
+		"Rate": {
+			"type": "select",
+			"options":	[
+				"1 Infected",
+				"2 Infected",
+				"3 Infected"
+			]
+		}
+	}
+}

@@ -6,6 +6,7 @@ Turn this on if you want to test by yourself, and turn
 
 NOTE: The icons at the top don't show the correct teams
 */
+
 var singlePlayer = false;
 var addSinglePlayerBots = false;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
@@ -43,6 +44,14 @@ var zombieID = -1;
 var isZombie = {};
 var isInfected = {};
 
+var totalSpawnInfected = 1;
+
+// Stores player's original teams
+var originalTeam = {};
+
+// Stores if we've told this player how to play
+var toldPlayers = {};
+
 // We need to store radiants ancient
 var DIRE_ANCIENT;
 
@@ -59,6 +68,21 @@ if(singlePlayer && addSinglePlayerBots) {
 		}
 	}
 }
+
+plugin.get('LobbyManager', function(obj){
+	// Grab options
+	var option = obj.getOptionsForPlugin("Infection")["Rate"];
+	
+	// Ensure we can find the lobby manager
+	if(option) {
+		// Update gold per second
+		totalSpawnInfected = parseInt(option);
+		
+		if(totalSpawnInfected <= 0) {
+			totalSpawnInfected = 1;
+		}
+	}
+});
 
 function onMapStart() {
 	// Store dire's ancient
@@ -158,9 +182,7 @@ function onHeroSpawn(hero) {
 		// Check if this player is infected
 		if(isInfected[playerID]) {
 			// Tell the client what's going on
-			client.printToChat('You are infected! You will turn into a zombie in '+ZOMBIE_INFECT_DELAY+' seconds!');
-			client.printToChat('Try to stand near someone so you can eat their brains, or run back towards the dire base so you don\'t feed the humans!');
-			client.printToChat('Type -zombie to change instantly!');
+			client.printToChat('You will turn into a zombie in '+ZOMBIE_INFECT_DELAY+' seconds!');
 			
 			// Add a warning timer
 			timers.setTimeout(function() {
@@ -181,7 +203,11 @@ function onHeroSpawn(hero) {
 			
 			// This player is no longer infected
 			isInfected[playerID] = false;
-		} else if(isInfected[playerID] == null) {
+		} else if(isInfected[playerID] == null && !toldPlayers[playerID]) {
+			// Store that we've told them
+			toldPlayers[playerID] = true;
+			
+			// Tell them
 			client.printToChat('CAREFUL: If you die, you will become a zombie!');
 			client.printToChat('If your gold is frozen, try: -checkgold');
 		}
@@ -194,45 +220,61 @@ function onHeroPicked(client, heroName){
 	
 	// Check if there is already a zombie
 	if(zombieID == -1) {
-		var possibleZombies = new Array();
-		
-		// Build list of possible zombies
-		for(var i=0;i<server.clients.length;i++) {
-			// Grab client
-			var client = server.clients[i];
+		while(totalSpawnInfected > 0) {
+			// One less zombie we need to spawn infected
+			totalSpawnInfected -= 1;
 			
-			// Make sure this client is valid
-			if(client != null && client.isInGame() && client.netprops.m_iPlayerID != -1) {
-				// Push this clients ID into possible zombies
+			// Used to store possible zombies
+			var possibleZombies = new Array();
+			
+			// Build list of possible zombies
+			for(var i=0;i<server.clients.length;i++) {
+				// Grab client
+				var client = server.clients[i];
+				if(!client) continue;
+				
+				// Make sure this client has a playerID
+				var playerID = client.netprops.m_iPlayerID;
+				if(playerID == -1) continue;
+				
+				// Make sure this person isn't already infected
+				if(isInfected[playerID] != null) continue;
+				
+				// This is a possible zombie
 				possibleZombies.push(client.netprops.m_iPlayerID);
 			}
+			
+			// Pick a zombie
+			zombieID = possibleZombies[Math.floor((Math.random()*possibleZombies.length))];
+			
+			// Change the zombie to player0 if that dev option is selected
+			if(singlePlayer && spawnAsZombie) {
+				zombieID = 0;
+			}
+			
+			// Only spawn them as a zombie if it isn't single player mode
+			if(!singlePlayer || spawnAsZombie) {
+				// Store that this client is a zombie
+				isInfected[zombieID] = true;
+				
+				// Tell them they are infected
+				var c = dota.findClientByPlayerID(zombieID);
+				if(c) {
+					c.printToChat('You\'ve been infected with a DEADLY virus!');
+					c.printToChat('Try to stand near someone so you can eat their brains, or run back towards the dire base so you don\'t feed the humans!');
+					c.printToChat('Type -zombie to change instantly!');
+				}
+			}
+			
+			// Grab the client that corosponds to this zombie
+			var zombie = dota.findClientByPlayerID(zombieID);
+			
+			if(zombie == null) {
+				// Shit is broken!! (mostly here for dev reasons)
+				server.print('\n\nZOMBIE GAMEMODE IS BROKEN!\n\n');
+				return;
+			}
 		}
-		
-		// Pick a zombie
-		zombieID = possibleZombies[Math.floor((Math.random()*possibleZombies.length))];
-		
-		// Change the zombie to player0 if that dev option is selected
-		if(singlePlayer && spawnAsZombie) {
-			zombieID = 0;
-		}
-		
-		// Only spawn them as a zombie if it isn't single player mode
-		if(!singlePlayer || spawnAsZombie) {
-			// Store that this client is a zombie
-			isInfected[zombieID] = true;
-		}
-		
-		// Grab the client that corosponds to this zombie
-		var zombie = dota.findClientByPlayerID(zombieID);
-		
-		if(zombie == null) {
-			// Shit is broken!! (mostly here for dev reasons)
-			server.print('\n\nZOMBIE GAMEMODE IS BROKEN!\n\n');
-			return;
-		}
-	} else if(zombieID == client.netprops.m_iPlayerID) {
-		// Put them onto dire
-		//becomeDire(client);
 	}
 	
 	// No one is allowed to pick undying
@@ -258,6 +300,11 @@ function onGameFrame(){
 }
 
 function onUnitParsed(unit, keyvalues){
+	// Make roshan into a zombie
+	if(unit.getClassname() == 'npc_dota_roshan') {
+		keyvalues['model'] = 'models/heroes/undying/undying_flesh_golem.mdl';
+	}
+	
 	// Check if it is one of our units
 	if(unit.getClassname() == 'npc_dota_creep_lane' ||
 	   unit.getClassname() == 'npc_dota_creep_siege') {
@@ -316,43 +363,55 @@ function CmdCheckGold(client) {
 	
 	// Read their gold, where we read depends on their team
 	if(team == dota.TEAM_RADIANT) {
+		// They shouldn't need this if they didn't change teams
+		if(originalTeam[playerID] && originalTeam[playerID] == dota.TEAM_RADIANT) {
+			return;
+		}
+		
 		reliableGold = playerManager.netprops.m_iReliableGoldRadiant[playerID];
 		unreliableGold = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+		
+		// Jump onto dire for a frame
+		playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
 		
 		// Copy gold over
 		playerManager.netprops.m_iReliableGoldDire[playerID] = reliableGold;
 		playerManager.netprops.m_iUnreliableGoldDire[playerID] = unreliableGold;
 		
-		// Jump onto dire for a frame
-		playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
-		
 		// Reset back to radiant
 		timers.setTimeout(function() {
-			// Become radiant
-			becomeRadiant(client);
-			
 			// Just incase
 			playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
-		}, 1);
+			
+			// Store gold back the other way
+			playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
+			playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
+		}, 2000);
 	} else if(team == dota.TEAM_DIRE) {
+		// They shouldn't need this if they didn't change teams
+		if(originalTeam[playerID] && originalTeam[playerID] == dota.TEAM_DIRE) {
+			return;
+		}
+		
 		reliableGold = playerManager.netprops.m_iReliableGoldDire[playerID];
 		unreliableGold = playerManager.netprops.m_iUnreliableGoldDire[playerID];
-		
-		// Copy gold over
-		playerManager.netprops.m_iReliableGoldRadiant[playerID] = reliableGold;
-		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = unreliableGold;
 		
 		// Jump onto radiant for a frame
 		playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
 		
+		// Copy gold over
+		playerManager.netprops.m_iReliableGoldRadiant[playerID] = reliableGold - 1;
+		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = unreliableGold - 1;
+		
 		// Reset back to dire
 		timers.setTimeout(function() {
-			// Become radiant
-			becomeDire(client);
-			
 			// Just incase
 			playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
-		}, 1);
+			
+			// Store gold back the other way
+			playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
+			playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+		}, 2000);
 	} else {
 		return;
 	}
@@ -406,20 +465,8 @@ function becomeDire(client) {
 	var hero = grabHero(client);
 	if(!hero) return;
 	
-	// Grab playerID
-	//var playerID = client.netprops.m_iPlayerID;
-	//if (playerID == -1) return;
-	
 	// Change team
 	hero.netprops.m_iTeamNum = dota.TEAM_DIRE;
-	
-	// Change their team in the player manager
-	
-	
-	// Copy gold over
-	/*if(playerManager.netprops.m_iUnreliableGoldDire[playerID] >= 38000) {
-		playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
-	}*/
 }
 
 function becomeRadiant(client) {
@@ -429,26 +476,19 @@ function becomeRadiant(client) {
 	var playerID = client.netprops.m_iPlayerID;
 	if(playerID == -1) return;
 	
+	// Store original team
+	if(!originalTeam[playerID]) {
+		originalTeam[playerID] = playerManager.netprops.m_iPlayerTeams[playerID];
+	}
+	
 	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
 	
 	// Check if they have a hero yet
 	var hero = grabHero(client);
 	if(!hero) return;
 	
-	// Grab playerID
-	//var playerID = client.netprops.m_iPlayerID;
-	//if (playerID == -1) return;
-	
 	// Change team
 	hero.netprops.m_iTeamNum = dota.TEAM_RADIANT;
-	
-	// Change their team in the player manager
-	
-	
-	// Check gold
-	/*if(playerManager.netprops.m_iUnreliableGoldRadiant[playerID] >= 38000) {
-		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = 2306;
-	}*/
 }
 
 function onEntityHurt(event) {
