@@ -203,13 +203,6 @@ function onHeroSpawn(hero) {
 			
 			// This player is no longer infected
 			isInfected[playerID] = false;
-		} else if(isInfected[playerID] == null && !toldPlayers[playerID]) {
-			// Store that we've told them
-			toldPlayers[playerID] = true;
-			
-			// Tell them
-			client.printToChat('CAREFUL: If you die, you will become a zombie!');
-			client.printToChat('If your gold is frozen, try: -checkgold');
 		}
 	}
 }
@@ -230,18 +223,18 @@ function onHeroPicked(client, heroName){
 			// Build list of possible zombies
 			for(var i=0;i<server.clients.length;i++) {
 				// Grab client
-				var client = server.clients[i];
-				if(!client) continue;
+				var client2 = server.clients[i];
+				if(!client2) continue;
 				
 				// Make sure this client has a playerID
-				var playerID = client.netprops.m_iPlayerID;
+				var playerID = client2.netprops.m_iPlayerID;
 				if(playerID == -1) continue;
 				
 				// Make sure this person isn't already infected
 				if(isInfected[playerID] != null) continue;
 				
 				// This is a possible zombie
-				possibleZombies.push(client.netprops.m_iPlayerID);
+				possibleZombies.push(client2.netprops.m_iPlayerID);
 			}
 			
 			// Pick a zombie
@@ -274,6 +267,19 @@ function onHeroPicked(client, heroName){
 				server.print('\n\nZOMBIE GAMEMODE IS BROKEN!\n\n');
 				return;
 			}
+		}
+	}
+	
+	// Grab their playerID
+	var playerID = client.netprops.m_iPlayerID;
+	if(playerID != -1) {
+		if(isInfected[playerID] == null && !toldPlayers[playerID]) {
+			// Store that we've told them
+			toldPlayers[playerID] = true;
+			
+			// Tell them
+			client.printToChat('CAREFUL: If you die, you will become a zombie!');
+			client.printToChat('If your gold is frozen, wait until the game starts and try: -checkgold');
 		}
 	}
 	
