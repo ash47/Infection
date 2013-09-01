@@ -529,6 +529,13 @@ function onEntityHurt(event) {
 			var client = dota.findClientByPlayerID(playerID);
 			if(!client) return;
 			
+			// Grab real hero
+			var realHero = grabHero(client);
+			if(!realHero) return;
+			
+			// Make sure this is their real hero!
+			if(ent != realHero) return;	// makes sure this isnt an illusion
+			
 			// Check if this client is already a zombie
 			if(isZombie[playerID]) {
 				// Grab the current time
