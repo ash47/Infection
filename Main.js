@@ -681,7 +681,6 @@ function giveGold(playerID, amount) {
 var leapSkills = new Array(
 	'mirana_leap',
 	'antimage_blink',
-	'tusk_snowball',
 	'magnataur_skewer',
 	'morphling_waveform',
 	'faceless_void_time_walk',
