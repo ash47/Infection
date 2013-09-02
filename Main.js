@@ -614,7 +614,6 @@ var utilSkills = new Array(
 	'pudge_rot',
 	'pudge_dismember',
 	'life_stealer_rage',
-	'life_stealer_infest',
 	'undying_tombstone',
 	'alchemist_acid_spray',
 	'bristleback_viscous_nasal_goo',
