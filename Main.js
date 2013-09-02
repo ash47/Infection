@@ -7,8 +7,8 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = true;
-var addSinglePlayerBots = true;
+var singlePlayer = false;
+var addSinglePlayerBots = false;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
 
 // Grab libraries
@@ -21,6 +21,8 @@ game.hook("Dota_OnHeroSpawn", onHeroSpawn);
 game.hook("Dota_OnBuyItem", onBuyItem);
 game.hook("OnGameFrame", onGameFrame);
 game.hook("Dota_OnUnitParsed", onUnitParsed);
+game.hook("OnClientDisconnect", onClientDisconnect);
+game.hook("OnClientPutInServer", onClientPutInServer);
 
 // Hook events
 game.hookEvent("entity_hurt", onEntityHurt);
@@ -342,6 +344,59 @@ function onUnitParsed(unit, keyvalues){
 	}
 }
 
+function onClientPutInServer(client) {
+	// Teleport them back in after a second
+	timers.setTimeout(function() {
+		var playerID = client.netprops.m_iPlayerID;
+		if(playerID == -1) return;
+		
+		// Check if they are a zombie
+		if(isZombie[playerID]) {
+			// Grab pos
+			var pos = DIRE_ANCIENT.netprops.m_vecOrigin
+			
+			// Turn them into a zombie
+			var heroes = client.getHeroes();
+			for(var hh in heroes) {
+				var hero = heroes[hh];
+				
+				// Turn into a zombie
+				becomeZombie(hero);
+				
+				// Teleport them back towards the base
+				dota.findClearSpaceForUnit(hero, pos);
+			}
+		}
+	}, 1000);
+}
+
+function onClientDisconnect(client) {
+	var playerID = client.netprops.m_iPlayerID;
+	if(playerID == -1) return;
+	
+	// Grab original team
+	var oTeam = originalTeam[playerID];
+	
+	// Turn them into a zombie
+	var heroes = client.getHeroes();
+	for(var hh in heroes) {
+		var hero = heroes[hh];
+		
+		// Turn into a zombie
+		becomeZombie(hero);
+		
+		// Teleport out of arena
+		if (oTeam == dota.TEAM_DIRE) {
+			hero.teleport(-50000.0, 50000.0, 0.0);
+		} else {
+			hero.teleport(50000.0, -50000.0, 0.0);
+		}
+	}
+	
+	// Reset their team back to normal
+	becomeOriginalTeam(client);
+}
+
 function CmdZombie(client) {
 	var playerID = client.netprops.m_iPlayerID;
 	if(playerID == -1) return;
@@ -498,6 +553,21 @@ function becomeRadiant(client) {
 		
 		// Change team
 		hero.netprops.m_iTeamNum = dota.TEAM_RADIANT;
+	}
+}
+
+// Puts them back onto their original team
+function becomeOriginalTeam(client) {
+	var playerID = client.netprops.m_iPlayerID;
+	if(playerID == -1) return;
+	
+	// Make sure they have an original team
+	if(originalTeam[playerID]) {
+		if(originalTeam[playerID] == dota.TEAM_RADIANT) {
+			becomeRadiant(client);
+		} else if(originalTeam[playerID] == dota.TEAM_DIRE) {
+			becomeDire(client);
+		}
 	}
 }
 
