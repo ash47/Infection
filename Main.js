@@ -7,8 +7,8 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = false;
-var addSinglePlayerBots = false;
+var singlePlayer = true;
+var addSinglePlayerBots = true;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
 
 // Grab libraries
@@ -348,12 +348,14 @@ function CmdZombie(client) {
 	
 	// Check if this player was infected, and make sure they aren't already a zombie
 	if(isInfected[playerID] != null && !isZombie[playerID]) {
-		// Grab their hero
-		var hero = grabHero(client);
-		if(!hero) return;
+		var heroes = client.getHeroes();
 		
-		// Turn into a zombie
-		becomeZombie(hero);
+		for(var hh in heroes) {
+			var hero = heroes[hh];
+			
+			// Turn into a zombie
+			becomeZombie(hero);
+		}
 	}
 }
 
@@ -467,12 +469,13 @@ function becomeDire(client) {
 	
 	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
 	
-	// Check if they have a hero yet
-	var hero = grabHero(client);
-	if(!hero) return;
-	
-	// Change team
-	hero.netprops.m_iTeamNum = dota.TEAM_DIRE;
+	var heroes = client.getHeroes();
+	for(var hh in heroes) {
+		var hero = heroes[hh];
+		
+		// Change team
+		hero.netprops.m_iTeamNum = dota.TEAM_DIRE;
+	}
 }
 
 function becomeRadiant(client) {
@@ -489,12 +492,13 @@ function becomeRadiant(client) {
 	
 	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
 	
-	// Check if they have a hero yet
-	var hero = grabHero(client);
-	if(!hero) return;
-	
-	// Change team
-	hero.netprops.m_iTeamNum = dota.TEAM_RADIANT;
+	var heroes = client.getHeroes();
+	for(var hh in heroes) {
+		var hero = heroes[hh];
+		
+		// Change team
+		hero.netprops.m_iTeamNum = dota.TEAM_RADIANT;
+	}
 }
 
 function onEntityHurt(event) {
@@ -529,12 +533,11 @@ function onEntityHurt(event) {
 			var client = dota.findClientByPlayerID(playerID);
 			if(!client) return;
 			
-			// Grab real hero
-			var realHero = grabHero(client);
-			if(!realHero) return;
+			// Grab list of heroes
+			var heroes = client.getHeroes();
 			
-			// Make sure this is their real hero!
-			if(ent != realHero) return;	// makes sure this isnt an illusion
+			// Make sure this hero is one of our heroes
+			if(heroes.indexOf(ent) == -1) return;
 			
 			// Check if this client is already a zombie
 			if(isZombie[playerID]) {
@@ -543,28 +546,39 @@ function onEntityHurt(event) {
 				
 				// Respawn them after 2 seconds
 				timers.setTimeout(function() {
-					ent.netprops.m_flRespawnTime = gametime + 2;
+					for(var hh in heroes) {
+						var hero = heroes[hh];
+						
+						hero.netprops.m_flRespawnTime = gametime + 2;
+					}
 				}, 1)
 			} else {
-				// Strip all items
-				for(var i=0; i<6;i++) {
-					// Grab item
-					var item = ent.netprops.m_hItems[i];
+				for(var hh in heroes) {
+					var hero = heroes[hh];
 					
-					// Check if it's valid
-					if(item && item.isValid()) {
-						// Remove the item
-						dota.remove(item);
+					// Strip all items
+					for(var i=0; i<6;i++) {
+						// Grab item
+						var item = hero.netprops.m_hItems[i];
+						
+						// Check if it's valid
+						if(item && item.isValid()) {
+							// Remove the item
+							dota.remove(item);
+						}
 					}
+					
+					// Set health to 0
+					hero.netprops.m_iHealth = 0;
+					
+					// Give aegis
+					dota.giveItemToHero('item_aegis', hero)
+					
+					// Become a zombie in 1 second
+					timers.setTimeout(function() {
+						becomeZombie(hero);
+					}, 5100);
 				}
-				
-				// Give aegis
-				dota.giveItemToHero('item_aegis', ent)
-				
-				// Become a zombie in 1 second
-				timers.setTimeout(function() {
-					becomeZombie(ent);
-				}, 5100)
 			}
 		}
 	}
@@ -578,11 +592,13 @@ function onPlayerGainedLevel(event) {
 		
 		// Check if this client is a zombie
 		if(client && isZombie[client.netprops.m_iPlayerID]) {
-			var hero = grabHero(client);
-			if(!hero) return;
-			
-			// Update stats
-			setZombieStats(hero);
+			var heroes = client.getHeroes();
+			for(var hh in heroes) {
+				var hero = heroes[hh];
+				
+				// Update stats
+				setZombieStats(hero);
+			}
 		}
 	}
 }
@@ -766,16 +782,6 @@ function becomeHuman(client) {
 	becomeRadiant(client);
 }
 
-// Grabs a hero or return false if the client doesn't have one
-function grabHero(client) {
-	var hero = client.netprops.m_hAssignedHero;
-	
-	// Check if the hero is valid:
-	if(!hero || !hero.isHero()) return null;
-	
-	return hero;
-}
-
 // Create timer to remove items from zombies (runs once every 10 seconds)
 timers.setInterval(function() {
 	// Cycle over every client
@@ -786,19 +792,20 @@ timers.setInterval(function() {
 		
 		// Check if this client is a zombie
 		if(isZombie[client.netprops.m_iPlayerID]) {
-			// Grab this client's hero
-			var hero = grabHero(client);
-			if(!hero) continue;
-			
-			// Remove all items
-			for(var j=0; j<6;j++) {
-				// Grab item
-				var item = hero.netprops.m_hItems[j];
+			var heroes = client.getHeroes();
+			for(var hh in heroes) {
+				var hero = heroes[hh];
 				
-				// Check if it's valid
-				if(item && item.isValid()) {
-					// Remove the item
-					dota.remove(item);
+				// Remove all items
+				for(var j=0; j<6;j++) {
+					// Grab item
+					var item = hero.netprops.m_hItems[j];
+					
+					// Check if it's valid
+					if(item && item.isValid()) {
+						// Remove the item
+						dota.remove(item);
+					}
 				}
 			}
 		}
@@ -815,16 +822,17 @@ timers.setInterval(function() {
 		var client = server.clients[i];
 		if(!client) continue;
 		
-		// Grab this client's hero
-		var hero = grabHero(client);
-		if(!hero) continue;
-		
-		// Grab it's level
-		var level = hero.netprops.m_iCurrentLevel || 1;
-		
-		// Check if this player has a higher level
-		if(level > maxLevel) {
-			maxLevel = level;
+		var heroes = client.getHeroes();
+		for(var hh in heroes) {
+			var hero = heroes[hh];
+			
+			// Grab it's level
+			var level = hero.netprops.m_iCurrentLevel || 1;
+			
+			// Check if this player has a higher level
+			if(level > maxLevel) {
+				maxLevel = level;
+			}
 		}
 	}
 	
@@ -834,22 +842,23 @@ timers.setInterval(function() {
 		var client = server.clients[i];
 		if(!client) continue;
 		
-		// Grab this client's hero
-		var hero = grabHero(client);
-		if(!hero) continue;
-		
-		// Check if this client is a zombie
-		if(isZombie[client.netprops.m_iPlayerID]) {
-			// Grab it's level
-			var level = hero.netprops.m_iCurrentLevel || 1;
+		var heroes = client.getHeroes();
+		for(var hh in heroes) {
+			var hero = heroes[hh];
 			
-			// Check if level is lower
-			if(level < maxLevel) {
-				// Adjust this zombies level
-				hero.netprops.m_iCurrentLevel = maxLevel;
+			// Check if this client is a zombie
+			if(isZombie[client.netprops.m_iPlayerID]) {
+				// Grab it's level
+				var level = hero.netprops.m_iCurrentLevel || 1;
 				
-				// Adjust their stats
-				setZombieStats(hero);
+				// Check if level is lower
+				if(level < maxLevel) {
+					// Adjust this zombies level
+					hero.netprops.m_iCurrentLevel = maxLevel;
+					
+					// Adjust their stats
+					setZombieStats(hero);
+				}
 			}
 		}
 	}
