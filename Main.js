@@ -56,8 +56,12 @@ var toldPlayers = {};
 
 // We need to store radiants ancient
 var DIRE_ANCIENT;
+var RADIANT_ANCIENT;
 
 var ZOMBIE_INFECT_DELAY = 60;	// Delay before infection takes someone over (in seconds)
+
+// Load objectives
+require('objectives.js');
 
 // Spawn bots if in single player
 if(singlePlayer && addSinglePlayerBots) {
@@ -89,6 +93,7 @@ plugin.get('LobbyManager', function(obj){
 function onMapStart() {
 	// Store dire's ancient
 	DIRE_ANCIENT = game.findEntityByTargetname('dota_badguys_fort');
+	RADIANT_ANCIENT = game.findEntityByTargetname('dota_goodguys_fort');
 	
 	// Add bloodlust to the ancient
 	DIRE_ANCIENT.trueSight = dota.createAbility(DIRE_ANCIENT, 'bloodseeker_thirst');
@@ -180,6 +185,9 @@ function onHeroSpawn(hero) {
 		
 		// Give zombies truesight to this hero
 		trueSight(hero);
+		
+		// Remind them about the objectives
+		client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
 		
 		// Check if this player is infected
 		if(isInfected[playerID]) {
@@ -281,6 +289,7 @@ function onHeroPicked(client, heroName){
 			
 			// Tell them
 			client.printToChat('CAREFUL: If you die, you will become a zombie!');
+			client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
 			client.printToChat('If your gold is frozen, wait until the game starts and try: -checkgold');
 		}
 	}
