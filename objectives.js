@@ -106,7 +106,7 @@ var objectives = new Array(
 								// Tell all clients
 								for(var i=0;i<server.clients.length;i++) {
 									var c = server.clients[i];
-									if(!c) continue;
+									if(!c || !c.isInGame()) continue;
 									
 									// Print message
 									c.printToChat('A gem was found! +1 stats to all humans!');
@@ -158,7 +158,7 @@ var objectives = new Array(
 				timers.setTimeout(function() {
 					for(var i=0;i<server.clients.length;i++) {
 						var c = server.clients[i];
-						if(!c) continue;
+						if(!c || !c.isInGame()) continue;
 						
 						// Print message
 						c.printToChat('The humans have survived another 2 minutes! +5 stats to all humans!');
@@ -215,7 +215,7 @@ var objectives = new Array(
 		loop1:
 		for(var i=0;i<server.clients.length;i++) {
 			var c = server.clients[i];
-			if(!c) continue;
+			if(!c || !c.isInGame()) continue;
 			
 			// Make sure this client isn't a zombie
 			var playerID = c.netprops.m_iPlayerID;
@@ -244,7 +244,7 @@ var objectives = new Array(
 				// Tell everyone about this challenge
 				for(var i=0;i<server.clients.length;i++) {
 					var c = server.clients[i];
-					if(!c) continue;
+					if(!c || !c.isInGame()) continue;
 					
 					// Print message
 					c.printToChat('A human has entered the Rosh Pit! Hold it for 60 seconds for a reward!');
@@ -258,7 +258,7 @@ var objectives = new Array(
 				// Tell everyone about this challenge
 				for(var i=0;i<server.clients.length;i++) {
 					var c = server.clients[i];
-					if(!c) continue;
+					if(!c || !c.isInGame()) continue;
 					
 					// Print message
 					c.printToChat('No humans are left in the Rosh Pit, the 60 seconds has reset!');
@@ -275,7 +275,7 @@ var objectives = new Array(
 				// Tell everyone about this challenge
 				for(var i=0;i<server.clients.length;i++) {
 					var c = server.clients[i];
-					if(!c) continue;
+					if(!c || !c.isInGame()) continue;
 					
 					// Print message
 					c.printToChat('The humans have held the Roshan pit for 60 seconds! +15 stats for all humans!');
