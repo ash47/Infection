@@ -7,8 +7,8 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = false;
-var addSinglePlayerBots = false;
+var singlePlayer = true;
+var addSinglePlayerBots = true;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
 
 // Grab libraries
@@ -580,6 +580,97 @@ function becomeOriginalTeam(client) {
 	}
 }
 
+// Infects more people if the humans are pwning
+function zombieFairnessTest() {
+	var totalZombies = 0;
+	var totalHumans = 0;
+	
+	// Check how many people are infected
+	for(var i=0; i<server.clients.length;i++) {
+		// Grab, validate client
+		var client = server.clients[i];
+		if(!client || !client.isInGame()) continue;
+		
+		// Grab playerID
+		var playerID = client.netprops.m_iPlayerID;
+		
+		// Check if this player is a zombie
+		if(isZombie[playerID]) {
+			totalZombies += 1;
+		} else {
+			totalHumans += 1;
+		}
+	}
+	
+	// Check if we need to infect someone
+	if(totalHumans > totalZombies) {
+		var possibleHumans = new Array();
+		
+		// Check how many people are infected
+		for(var i=0; i<server.clients.length;i++) {
+			// Grab, validate client
+			var client = server.clients[i];
+			if(!client || !client.isInGame()) continue;
+			
+			// Grab playerID
+			var playerID = client.netprops.m_iPlayerID;
+			if(playerID == -1) continue;
+			
+			// Check if this player is a zombie
+			if(!isZombie[playerID] && isInfected[playerID] == null) {
+				possibleHumans.push(playerID);
+			}
+		}
+		
+		// Check if there are any possible humans
+		if(possibleHumans.length <= 0) return;
+		
+		// Pick a random human to become a zombie
+		var newZombieID = possibleHumans[Math.floor((Math.random()*possibleHumans.length))];
+		
+		// Ensure the zombieID is valid
+		if(newZombieID == null) return;
+		
+		// Infect this person
+		isInfected[newZombieID] = true;
+		
+		// Tell them they are infected
+		var c = dota.findClientByPlayerID(newZombieID);
+		if(c) {
+			c.printToChat('You\'ve been infected! You will turn into a zombie in 30 seconds!');
+			c.printToChat('Type -zombie to change instantly!');
+			
+			// Add a warning timer
+			timers.setTimeout(function() {
+				// Make sure they haven't changed into a zombie already
+				if(!isZombie[playerID]) {
+					c.printToChat('You are about to change into a zombie!!!');
+				}
+			}, 1000 * (30 - 3));
+			
+			// Grab heroes
+			var heroes = c.getHeroes();
+			
+			// Add the timer to change them!
+			timers.setTimeout(function() {
+				// Make sure they haven't turned already
+				if(!isZombie[playerID]) {
+					// Turn all their heroes into zombies
+					for(var hh in heroes) {
+						var hero = heroes[hh];
+						
+						// Become a zombie!
+						becomeZombie(hero);
+					}
+				}
+			}, 1000 * 30);
+			
+			// This player is no longer infected
+			isInfected[playerID] = false;
+		}
+	}
+}
+
 function onEntityHurt(event) {
 	// Grab the entity that was attacked
 	var ent = game.getEntityByIndex(event.getInt('entindex_killed'));
@@ -592,10 +683,16 @@ function onEntityHurt(event) {
 		
 		if(tower2 == ent) {
 			tower2 = null;
+			
+			// Check if we should infect more humans
+			zombieFairnessTest();
 		}
 		
 		if(tower3 == ent) {
 			tower3 = null;
+			
+			// Check if we should infect more humans
+			zombieFairnessTest();
 		}
 	}
 	
