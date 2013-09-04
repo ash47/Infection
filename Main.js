@@ -1078,7 +1078,7 @@ timers.setInterval(function() {
 		if(playerID == -1) continue;
 		
 		// Check if this client is a zombie
-		if(isZombie[playerID] && !isAlphaZombie[zombieID]) {
+		if(isZombie[playerID] && !isAlphaZombie[playerID]) {
 			var heroes = client.getHeroes();
 			for(var hh in heroes) {
 				var hero = heroes[hh];
