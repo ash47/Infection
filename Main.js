@@ -882,7 +882,6 @@ var utilSkills = new Array(
 	'alchemist_acid_spray',
 	'bristleback_viscous_nasal_goo',
 	'centaur_stampede',
-	'tinker_march_of_the_machines',
 	'furion_force_of_nature'
 );
 
