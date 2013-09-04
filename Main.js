@@ -7,8 +7,8 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = true;
-var addSinglePlayerBots = true;
+var singlePlayer = false;
+var addSinglePlayerBots = false;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
 
 // Grab libraries
@@ -30,6 +30,7 @@ game.hookEvent("dota_player_gained_level", onPlayerGainedLevel);
 
 // Add console commands
 console.addClientCommand('zombie', CmdZombie);
+console.addClientCommand('z', CmdZ);
 console.addClientCommand('checkgold', CmdCheckGold);
 
 // Store mid towers on dire team
@@ -45,6 +46,11 @@ var playerManager;
 var zombieID = -1;
 var isZombie = {};
 var isInfected = {};
+var wantsToBeInfected = new Array();
+var isAlphaZombie = {};
+
+// List of people who have seen -o
+var objectiveShownTo = {};
 
 var totalSpawnInfected = 1;
 
@@ -122,12 +128,13 @@ function onMapStart() {
 	dota.loadParticleFile('particles/units/heroes/hero_alchemist.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_bristleback.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_centaur.pcf');
+	dota.loadParticleFile('"particles/units/heroes/hero_furion.pcf"');
 	
 	game.precacheModel('models/heroes/undying/undying_flesh_golem.mdl');
 	game.precacheModel('models/heroes/undying/undying_minion.mdl');
 	game.precacheModel('models/heroes/undying/undying_minion_torso.mdl');
 	game.precacheModel('models/heroes/undying/undying_tower.mdl');
-	game.precacheModel('models/heroes/pudge/pudge_hook.mdl');
+	game.precacheModel('models/heroes/furion/treant.mdl');
 	
 	// Grab the player manager
 	playerManager = game.findEntityByClassname(-1, "dota_player_manager");
@@ -179,15 +186,16 @@ function onHeroSpawn(hero) {
 			}
 		}, 1);
 		
+		// Tell them about alpha zombie perks
+		if(isAlphaZombie[playerID]) {
+			client.printToChat('You are the Alpha Zombie. You can buy items and have bonus stats.');
+		}
 	} else {
 		// Make this person human
 		becomeHuman(client);
 		
 		// Give zombies truesight to this hero
 		trueSight(hero);
-		
-		// Remind them about the objectives
-		client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
 		
 		// Check if this player is infected
 		if(isInfected[playerID]) {
@@ -213,6 +221,18 @@ function onHeroSpawn(hero) {
 			
 			// This player is no longer infected
 			isInfected[playerID] = false;
+			
+			// Store that we dont need to show the objective shit
+			objectiveShownTo[playerID] = true;
+		} else {
+			// Check if they've already seen it
+			if(!objectiveShownTo[playerID]) {
+				// Remind them about the objectives
+				client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
+				
+				// Store that we've seen it now
+				objectiveShownTo[playerID] = true;
+			}
 		}
 	}
 }
@@ -230,21 +250,27 @@ function onHeroPicked(client, heroName){
 			// Used to store possible zombies
 			var possibleZombies = new Array();
 			
-			// Build list of possible zombies
-			for(var i=0;i<server.clients.length;i++) {
-				// Grab client
-				var client2 = server.clients[i];
-				if(!client2) continue;
-				
-				// Make sure this client has a playerID
-				var playerID = client2.netprops.m_iPlayerID;
-				if(playerID == -1) continue;
-				
-				// Make sure this person isn't already infected
-				if(isInfected[playerID] != null) continue;
-				
-				// This is a possible zombie
-				possibleZombies.push(client2.netprops.m_iPlayerID);
+			// check if anyone _wants_ to be infected
+			if(wantsToBeInfected.length > 0) {
+				// These are the possible zombies
+				possibleZombies = wantsToBeInfected;
+			} else {
+				// Build list of possible zombies
+				for(var i=0;i<server.clients.length;i++) {
+					// Grab client
+					var client2 = server.clients[i];
+					if(!client2) continue;
+					
+					// Make sure this client has a playerID
+					var playerID = client2.netprops.m_iPlayerID;
+					if(playerID == -1) continue;
+					
+					// Make sure this person isn't already infected
+					if(isInfected[playerID] != null) continue;
+					
+					// This is a possible zombie
+					possibleZombies.push(client2.netprops.m_iPlayerID);
+				}
 			}
 			
 			// Pick a zombie
@@ -259,6 +285,9 @@ function onHeroPicked(client, heroName){
 			if(!singlePlayer || spawnAsZombie) {
 				// Store that this client is a zombie
 				isInfected[zombieID] = true;
+				
+				// Make this player into an alpha zombie
+				isAlphaZombie[zombieID] = true;
 				
 				// Tell them they are infected
 				var c = dota.findClientByPlayerID(zombieID);
@@ -305,8 +334,11 @@ function onBuyItem(ent, item, playerID, unknown) {
 	var client = dota.findClientByPlayerID(playerID);
 	if(!client) return;
 	
+	var playerID = client.netprops.m_iPlayerID;
+	if(playerID == -1) return false;
+	
 	// Stop zombies from buying items
-	if(isZombie[client.netprops.m_iPlayerID]) {
+	if(isZombie[playerID] && !isAlphaZombie[playerID]) {
 		return false;
 	}
 }
@@ -323,10 +355,11 @@ function onUnitParsed(unit, keyvalues){
 	}
 	
 	// Check if it is one of our units
-	if(unit.getClassname() == 'npc_dota_creep_lane' ||
-	   unit.getClassname() == 'npc_dota_creep_siege') {
+	if(	unit.getClassname() == 'npc_dota_creep_lane' ||
+		unit.getClassname() == 'npc_dota_creep' ||
+		unit.getClassname() == 'npc_dota_creep_siege') {
 			// Check if it is a dire creep
-			if(keyvalues['TeamName'] == 'DOTA_TEAM_BADGUYS') {
+			if(keyvalues['TeamName'] == 'DOTA_TEAM_BADGUYS' || unit.netprops.m_iTeamNum == dota.TEAM_DIRE) {
 				// Change model to random zombie
 				if(Math.random() < 0.5) {
 					keyvalues['model'] = 'models/heroes/undying/undying_minion_torso.mdl';
@@ -375,6 +408,9 @@ function onClientPutInServer(client) {
 				// Teleport them back towards the base
 				dota.findClearSpaceForUnit(hero, pos);
 			}
+		} else {
+			// Tell them about being a volunteer
+			client.printToChat('Type -z to volunteer to be the zombie!');
 		}
 	}, 1000);
 }
@@ -420,6 +456,19 @@ function CmdZombie(client) {
 			// Turn into a zombie
 			becomeZombie(hero);
 		}
+	}
+}
+
+function CmdZ(client) {
+	var playerID = client.netprops.m_iPlayerID;
+	if(playerID == -1) return;
+	
+	if(wantsToBeInfected.indexOf(playerID) == -1) {
+		// This player wants to be infected
+		wantsToBeInfected.push(playerID);
+		
+		// Tell them they will now have a larger chance to be infected
+		client.printToChat('You have a larger chance to become infected now!');
 	}
 }
 
@@ -526,10 +575,23 @@ function removeTrueSight(unit) {
 
 function becomeDire(client) {
 	if(!client) return;
+	
+	// Grab current team
+	var currentTeam = client.netprops.m_iTeamNum;
+	
+	// Update team
 	client.netprops.m_iTeamNum = dota.TEAM_DIRE;
 	
+	// Grab playerID
 	var playerID = client.netprops.m_iPlayerID;
 	if(playerID == -1) return;
+	
+	// Check if they are currently on Radiant
+	if(currentTeam == dota.TEAM_RADIANT) {
+		// Copy gold over
+		playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
+		playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+	}
 	
 	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
 	
@@ -544,10 +606,23 @@ function becomeDire(client) {
 
 function becomeRadiant(client) {
 	if(!client) return;
+	
+	// Grab current team
+	var currentTeam = client.netprops.m_iTeamNum;
+	
+	// Update team
 	client.netprops.m_iTeamNum = dota.TEAM_RADIANT;
 	
+	// Grab playerID
 	var playerID = client.netprops.m_iPlayerID;
 	if(playerID == -1) return;
+	
+	// Check if they are currently on Radiant
+	if(currentTeam == dota.TEAM_DIRE) {
+		// Copy gold over
+		playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
+		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
+	}
 	
 	// Store original team
 	if(!originalTeam[playerID]) {
@@ -795,9 +870,7 @@ var leapSkills = new Array(
 );
 
 var trapSkills = new Array(
-	'meepo_earthbind',
-	'dragon_knight_dragon_tail',
-	'crystal_maiden_frostbite'
+	'meepo_earthbind'
 );
 
 var utilSkills = new Array(
@@ -808,7 +881,15 @@ var utilSkills = new Array(
 	'undying_tombstone',
 	'alchemist_acid_spray',
 	'bristleback_viscous_nasal_goo',
-	'centaur_stampede'
+	'centaur_stampede',
+	'tinker_march_of_the_machines',
+	'furion_force_of_nature'
+);
+
+// List of skills where level 3 is the max  they go to
+var maxThree = new Array(
+	'centaur_stampede', 
+	'pudge_dismember'
 );
 
 function getRandomSkill(ar) {
@@ -860,7 +941,8 @@ function becomeZombie(hero) {
 	dota.setAbilityByIndex(hero, hero.trapSkill, 2);
 	
 	// Add util skill
-	hero.utilSkill = dota.createAbility(hero, getRandomSkill(utilSkills));
+	hero.utilSkillName = getRandomSkill(utilSkills)
+	hero.utilSkill = dota.createAbility(hero, hero.utilSkillName);
 	dota.setAbilityByIndex(hero, hero.utilSkill, 3);
 	
 	// Add Life Steal
@@ -907,7 +989,12 @@ function becomeZombie(hero) {
 function setZombieStats(hero) {
 	// Ensure this is a zombie
 	if(!hero) return;
-	if(!isZombie[hero.netprops.m_iPlayerID]) return;
+	
+	// Grab playerID, validate
+	var playerID = hero.netprops.m_iPlayerID;
+	if(playerID == -1) return;
+	
+	if(!isZombie[playerID]) return;
 	
 	// Remove skill points
 	hero.netprops.m_iAbilityPoints = 0;
@@ -932,6 +1019,20 @@ function setZombieStats(hero) {
 	hero.keyvalues['AttackAcquisitionRange'] = 600;
 	hero.keyvalues['AttackRange'] = 128;
 	
+	// Check if they are alpha
+	if(isAlphaZombie[playerID]) {
+		// Bonus movespeed for the alpha
+		hero.keyvalues['MovementSpeed'] = 240;
+		
+		// Bonus armor for the alpha
+		hero.keyvalues['ArmorPhysical'] = 5;
+		
+		// Bonus stats for the alpha
+		hero.netprops.m_flStrength += 30;
+		hero.netprops.m_flAgility += 30;
+		hero.netprops.m_flIntellect += 30;
+	}
+	
 	// Make it melee
 	hero.netprops.m_iAttackCapabilities = 1;
 	
@@ -948,6 +1049,15 @@ function setZombieStats(hero) {
 	hero.feast.netprops.m_iLevel = skillLevel+1;
 	hero.teleportSkill.netprops.m_iLevel = skillLevel+1;
 	hero.trapSkill.netprops.m_iLevel = skillLevel+1;
+	
+	// Check if it is an ult
+	if(maxThree.indexOf(hero.utilSkillName)) {
+		// Limit level to 2
+		if(skillLevel == 3) {
+			skillLevel = 2;
+		}
+	}
+	
 	hero.utilSkill.netprops.m_iLevel = skillLevel+1;
 }
 
@@ -965,8 +1075,11 @@ timers.setInterval(function() {
 		var client = server.clients[i];
 		if(!client) continue;
 		
+		var playerID = client.netprops.m_iPlayerID;
+		if(playerID == -1) continue;
+		
 		// Check if this client is a zombie
-		if(isZombie[client.netprops.m_iPlayerID]) {
+		if(isZombie[playerID] && !isAlphaZombie[zombieID]) {
 			var heroes = client.getHeroes();
 			for(var hh in heroes) {
 				var hero = heroes[hh];
