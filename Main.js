@@ -128,7 +128,8 @@ function onMapStart() {
 	dota.loadParticleFile('particles/units/heroes/hero_alchemist.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_bristleback.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_centaur.pcf');
-	dota.loadParticleFile('"particles/units/heroes/hero_furion.pcf"');
+	dota.loadParticleFile('particles/units/heroes/hero_furion.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_treant.pcf');
 	
 	game.precacheModel('models/heroes/undying/undying_flesh_golem.mdl');
 	game.precacheModel('models/heroes/undying/undying_minion.mdl');
@@ -865,12 +866,13 @@ var leapSkills = new Array(
 	'magnataur_skewer',
 	'morphling_waveform',
 	'faceless_void_time_walk',
-	'riki_blink_strike',
-	'slark_pounce'
+	'riki_blink_strike'
 );
 
 var trapSkills = new Array(
-	'meepo_earthbind'
+	'meepo_earthbind',
+	'life_stealer_open_wounds',
+	'treant_leech_seed'
 );
 
 var utilSkills = new Array(

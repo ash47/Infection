@@ -60,6 +60,7 @@ var objectives = new Array(
 			var heroes = client.getHeroes();
 			for(var hh in heroes) {
 				var hero = heroes[hh];
+				if(!hero) continue;
 				
 				// Cycle all items of this hero
 				for(var j=0;j<14;j++) {
