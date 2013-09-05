@@ -10,6 +10,7 @@ NOTE: The icons at the top don't show the correct teams
 var singlePlayer = true;
 var addSinglePlayerBots = true;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
+var forceZombieID = -1;				// Which player to force as a zombie
 
 // Grab libraries
 var timers = require('timers');
@@ -68,6 +69,10 @@ var ZOMBIE_INFECT_DELAY = 60;	// Delay before infection takes someone over (in s
 
 // Load objectives
 require('objectives.js');
+
+// Extra gold taken from EasyMode
+var goldTimer;
+var goldOnce = false;
 
 // Spawn bots if in single player
 if(singlePlayer && addSinglePlayerBots) {
@@ -158,6 +163,13 @@ function onMapStart() {
 	if(!tower1 || !tower2 || !tower3) {
 		server.print('FAILED TO FIND TOWERS!');
 	}
+	
+	// Create couriers
+	var courier = dota.createUnit('npc_dota_courier', dota.TEAM_RADIANT);
+	dota.findClearSpaceForUnit(courier, -7271, -6713, 270);
+	
+	var courier = dota.createUnit('npc_dota_courier', dota.TEAM_DIRE);
+	dota.findClearSpaceForUnit(courier, 7031, 6427, 263);
 }
 
 function onHeroSpawn(hero) {
@@ -279,7 +291,7 @@ function onHeroPicked(client, heroName){
 			
 			// Change the zombie to player0 if that dev option is selected
 			if(singlePlayer && spawnAsZombie) {
-				zombieID = 0;
+				zombieID = forceZombieID;
 			}
 			
 			// Only spawn them as a zombie if it isn't single player mode
@@ -347,6 +359,54 @@ function onBuyItem(ent, item, playerID, unknown) {
 // Force mid only
 function onGameFrame(){
 	cvForceGameMode.setInt(11);
+	
+	var gameTime = game.rules.props.m_fGameTime;
+	if (!goldOnce && game.rules.props.m_nGameState == dota.STATE_GAME_IN_PROGRESS) {
+		goldOnce = true;
+		goldTimer = game.rules.props.m_fGameTime;
+	}
+	
+	if (gameTime >= goldTimer) {
+		goldTimer += 1;
+		
+		var totalZombies = 0;
+		var totalHumans = 0;
+		
+		for (var i = 0; i < server.clients.length; ++i) {
+			var client = server.clients[i];
+			if (!client || !client.isInGame()) continue;
+			
+			var playerID = client.netprops.m_iPlayerID;
+			if(playerID == -1) continue;
+			
+			if(isZombie[playerID]) {
+				totalZombies += 1;
+			} else {
+				totalHumans += 1;
+			}
+		}
+		
+		// Check if zombies outnumber humans
+		var ratio = totalZombies - totalHumans;
+		if(ratio < 0) return;
+		
+		// Change the ratio
+		ratio *= 2;
+		
+		// Give gold
+		for (var i = 0; i < server.clients.length; ++i) {
+			var client = server.clients[i];
+			if (!client || !client.isInGame()) continue;
+			
+			var playerID = client.netprops.m_iPlayerID;
+			if(playerID == -1) continue;
+			
+			// Make sure they aren't a zombie
+			if(!isZombie[playerID]) {
+				giveGold(playerID, ratio);
+			}
+		}
+	}
 }
 
 function onUnitParsed(unit, keyvalues){
@@ -583,6 +643,9 @@ function becomeDire(client) {
 	// Update team
 	client.netprops.m_iTeamNum = dota.TEAM_DIRE;
 	
+	// Fix couriers
+	courierFix()
+	
 	// Grab playerID
 	var playerID = client.netprops.m_iPlayerID;
 	if(playerID == -1) return;
@@ -614,6 +677,9 @@ function becomeRadiant(client) {
 	// Update team
 	client.netprops.m_iTeamNum = dota.TEAM_RADIANT;
 	
+	// Fix couriers
+	courierFix()
+	
 	// Grab playerID
 	var playerID = client.netprops.m_iPlayerID;
 	if(playerID == -1) return;
@@ -639,6 +705,38 @@ function becomeRadiant(client) {
 		// Change team
 		hero.netprops.m_iTeamNum = dota.TEAM_RADIANT;
 	}
+}
+
+function courierFix() {
+	// Find all couriers
+	var couriers = game.findEntitiesByClassname('npc_dota_courier');
+	
+	// Loop over eveyr courier
+	for(var i=0;i<couriers.length;i++) {
+		// Grab a courier
+		var courier = couriers[i];
+		
+		// Reset it's controllable status
+		courier.netprops.m_iIsControllableByPlayer = 0;
+		
+		// Grab it's team
+		var team = courier.netprops.m_iTeamNum;
+		
+		// Loop over all players
+		for(var j=0; j<dota.MAX_PLAYERS;j++) {
+			// Grab a client
+			var client = dota.findClientByPlayerID(j);
+			if(!client) continue;
+			
+			// Check if they are on the same team
+			if(team == client.netprops.m_iTeamNum) {
+				// Allow this client to controle it
+				courier.netprops.m_iIsControllableByPlayer += 1 << j;
+			}
+		}
+	}
+	
+	
 }
 
 // Puts them back onto their original team

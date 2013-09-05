@@ -71,7 +71,7 @@ var objectives = new Array(
 							dota.remove(itemSlot);
 							
 							// Grab the client's team
-							var team = client.netprops.m_iTeamNum
+							var team = client.netprops.m_iTeamNum;
 							
 							// Check if it was a zombie that picked it up
 							if(team == dota.TEAM_DIRE) {
