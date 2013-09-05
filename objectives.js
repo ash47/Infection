@@ -403,4 +403,16 @@ if(singlePlayer) {
 		var pos = o.poses[i];
 		dota.pingLocation(client, 0, 0, true, 0, pos);
 	});
+	
+	console.addClientCommand('aegis', function(client, args) {
+		
+		// Grab list of heroes
+		var heroes = client.getHeroes();
+		
+		for(var hh in heroes) {
+			var hero = heroes[hh];
+			
+			dota.giveItemToHero('item_aegis', hero)
+		}
+	});
 }

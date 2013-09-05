@@ -7,8 +7,8 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = false;
-var addSinglePlayerBots = false;
+var singlePlayer = true;
+var addSinglePlayerBots = true;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
 
 // Grab libraries
@@ -805,6 +805,40 @@ function onEntityHurt(event) {
 					}
 				}, 1)
 			} else {
+				var hasAegis = false;
+				
+				// Search for aegis
+				aegisLoop:
+				for(var hh in heroes) {
+					var hero = heroes[hh];
+					
+					// Seach inventory slots
+					for(var i=0; i<6;i++) {
+						// Grab item
+						var item = hero.netprops.m_hItems[i];
+						
+						// Check if it's valid
+						if(item && item.isValid()) {
+							// Check if it's an Aegis
+							if(item.getClassname() == 'item_aegis') {
+								// They have an aegis
+								hasAegis = true;
+								
+								// Break out of the aegis loop
+								break aegisLoop;
+							}
+						}
+					}
+				}
+				
+				// Check if they have the aegis
+				if(hasAegis) {
+					// Possibly gonna do something here in the future
+					
+					// Stop them from becoming a zombie
+					return;
+				}
+				
 				for(var hh in heroes) {
 					var hero = heroes[hh];
 					
