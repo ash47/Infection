@@ -7,8 +7,8 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = true;
-var addSinglePlayerBots = true;
+var singlePlayer = false;
+var addSinglePlayerBots = false;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
 var forceZombieID = -1;				// Which player to force as a zombie
 
