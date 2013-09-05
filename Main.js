@@ -32,7 +32,6 @@ game.hookEvent("dota_player_gained_level", onPlayerGainedLevel);
 // Add console commands
 console.addClientCommand('zombie', CmdZombie);
 console.addClientCommand('z', CmdZ);
-console.addClientCommand('checkgold', CmdCheckGold);
 
 // Store mid towers on dire team
 var tower1, tower2, tower3;
@@ -332,7 +331,6 @@ function onHeroPicked(client, heroName){
 			// Tell them
 			client.printToChat('CAREFUL: If you die, you will become a zombie!');
 			client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
-			client.printToChat('If your gold is frozen, wait until the game starts and try: -checkgold');
 		}
 	}
 	
@@ -533,75 +531,6 @@ function CmdZ(client) {
 	}
 }
 
-function CmdCheckGold(client) {
-	if(!client) return;
-	
-	var playerID = client.netprops.m_iPlayerID;
-	if(playerID == -1) return;
-	
-	var reliableGold, unreliableGold;
-	
-	var team = client.netprops.m_iTeamNum;
-	
-	// Read their gold, where we read depends on their team
-	if(team == dota.TEAM_RADIANT) {
-		// They shouldn't need this if they didn't change teams
-		if(originalTeam[playerID] && originalTeam[playerID] == dota.TEAM_RADIANT) {
-			return;
-		}
-		
-		reliableGold = playerManager.netprops.m_iReliableGoldRadiant[playerID];
-		unreliableGold = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
-		
-		// Jump onto dire for a frame
-		playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
-		
-		// Copy gold over
-		playerManager.netprops.m_iReliableGoldDire[playerID] = reliableGold;
-		playerManager.netprops.m_iUnreliableGoldDire[playerID] = unreliableGold;
-		
-		// Reset back to radiant
-		timers.setTimeout(function() {
-			// Just incase
-			playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
-			
-			// Store gold back the other way
-			playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
-			playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
-		}, 2000);
-	} else if(team == dota.TEAM_DIRE) {
-		// They shouldn't need this if they didn't change teams
-		if(originalTeam[playerID] && originalTeam[playerID] == dota.TEAM_DIRE) {
-			return;
-		}
-		
-		reliableGold = playerManager.netprops.m_iReliableGoldDire[playerID];
-		unreliableGold = playerManager.netprops.m_iUnreliableGoldDire[playerID];
-		
-		// Jump onto radiant for a frame
-		playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
-		
-		// Copy gold over
-		playerManager.netprops.m_iReliableGoldRadiant[playerID] = reliableGold - 1;
-		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = unreliableGold - 1;
-		
-		// Reset back to dire
-		timers.setTimeout(function() {
-			// Just incase
-			playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
-			
-			// Store gold back the other way
-			playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
-			playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
-		}, 2000);
-	} else {
-		return;
-	}
-	
-	// Tell client
-	client.printToChat('You have '+(reliableGold+unreliableGold)+'g');
-}
-
 var patchedGold = {};
 function goldPatch(client) {
 	if(!client) return;
@@ -650,18 +579,15 @@ function becomeDire(client) {
 	var playerID = client.netprops.m_iPlayerID;
 	if(playerID == -1) return;
 	
-	// Check if they are currently on Radiant
-	if(currentTeam == dota.TEAM_RADIANT) {
-		// Copy gold over
-		playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
-		playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+	// Store original team
+	if(!originalTeam[playerID]) {
+		originalTeam[playerID] = playerManager.netprops.m_iPlayerTeams[playerID];
 	}
-	
-	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
 	
 	var heroes = client.getHeroes();
 	for(var hh in heroes) {
 		var hero = heroes[hh];
+		if(!hero) continue;
 		
 		// Change team
 		hero.netprops.m_iTeamNum = dota.TEAM_DIRE;
@@ -684,23 +610,15 @@ function becomeRadiant(client) {
 	var playerID = client.netprops.m_iPlayerID;
 	if(playerID == -1) return;
 	
-	// Check if they are currently on Radiant
-	if(currentTeam == dota.TEAM_DIRE) {
-		// Copy gold over
-		playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
-		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
-	}
-	
 	// Store original team
 	if(!originalTeam[playerID]) {
 		originalTeam[playerID] = playerManager.netprops.m_iPlayerTeams[playerID];
 	}
 	
-	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
-	
 	var heroes = client.getHeroes();
 	for(var hh in heroes) {
 		var hero = heroes[hh];
+		if(!hero) continue;
 		
 		// Change team
 		hero.netprops.m_iTeamNum = dota.TEAM_RADIANT;
@@ -848,6 +766,50 @@ function zombieFairnessTest() {
 function onEntityHurt(event) {
 	// Grab the entity that was attacked
 	var ent = game.getEntityByIndex(event.getInt('entindex_killed'));
+	
+	var attacker = game.getEntityByIndex(event.getInt('entindex_attacker'));
+	if(attacker.isHero() && ent.netprops.m_iHealth <= 0) {
+		var playerID = attacker.netprops.m_iPlayerID;
+		if(playerID != -1 && originalTeam[playerID]) {
+			var team = attacker.netprops.m_iTeamNum;
+			
+			// Only need to do this if they aren't on their original team
+			if(team != originalTeam[playerID]) {
+				// Put them onto the 'correct' team for a moment
+				playerManager.netprops.m_iPlayerTeams[playerID] = team;
+				
+				if(team == dota.TEAM_DIRE) {
+					// Copy their gold into their other team's slot
+					playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
+					playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+					
+					// Reset them to their original team after 1 second
+					timers.setTimeout(function() {
+						// Reset their team
+						playerManager.netprops.m_iPlayerTeams[playerID] = originalTeam[playerID];
+						
+						// Reset their gold
+						playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
+						playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
+					}, 1);
+				} else if(team == dota.TEAM_RADIANT) {
+					// Copy their gold into their other team's slot
+					playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
+					playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
+					
+					// Reset them to their original team after 1 second
+					timers.setTimeout(function() {
+						// Reset their team
+						playerManager.netprops.m_iPlayerTeams[playerID] = originalTeam[playerID];
+						
+						// Reset their gold
+						playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
+						playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+					}, 1);
+				}
+			}
+		}
+	}
 	
 	if(ent.netprops.m_iHealth <= 0) {
 		// Remove reference if it is a tower
