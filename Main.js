@@ -448,6 +448,7 @@ function onUnitParsed(unit, keyvalues){
 function onClientPutInServer(client) {
 	// Teleport them back in after a second
 	timers.setTimeout(function() {
+		if(!client || !client.isInGame()) return;
 		var playerID = client.netprops.m_iPlayerID;
 		if(playerID == -1) return;
 		
