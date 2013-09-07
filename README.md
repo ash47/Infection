@@ -58,3 +58,4 @@ This is a sourcemod.js plugin.
 
 ###Links###
  - [Infection on D2Ware] (http://d2ware.net/plugin?Infection)
+ - [Infection on Steam/D2Ware Forums] (http://steamcommunity.com/groups/D2Ware/discussions/0/864978109789647445/)
