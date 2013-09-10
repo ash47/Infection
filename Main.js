@@ -764,6 +764,30 @@ function zombieFairnessTest() {
 	}
 }
 
+function resetTeamRadiant(playerID) {
+	// Reset them to their original team after 1 second
+	timers.setTimeout(function() {
+		// Reset their team
+		playerManager.netprops.m_iPlayerTeams[playerID] = originalTeam[playerID];
+		
+		// Reset their gold
+		playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
+		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
+	}, 1);
+}
+
+function resetTeamDire(playerID) {
+	// Reset them to their original team after 1 second
+	timers.setTimeout(function() {
+		// Reset their team
+		playerManager.netprops.m_iPlayerTeams[playerID] = originalTeam[playerID];
+		
+		// Reset their gold
+		playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
+		playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+	}, 1);
+}
+
 function onEntityHurt(event) {
 	// Grab the entity that was attacked
 	var ent = game.getEntityByIndex(event.getInt('entindex_killed'));
@@ -796,29 +820,15 @@ function onEntityHurt(event) {
 						playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
 						playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
 						
-						// Reset them to their original team after 1 second
-						timers.setTimeout(function() {
-							// Reset their team
-							playerManager.netprops.m_iPlayerTeams[playerID] = originalTeam[playerID];
-							
-							// Reset their gold
-							playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
-							playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
-						}, 1);
+						// Reset this player's team
+						resetTeamRadiant(playerID);
 					} else if(team == dota.TEAM_RADIANT) {
 						// Copy their gold into their other team's slot
 						playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
 						playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
 						
-						// Reset them to their original team after 1 second
-						timers.setTimeout(function() {
-							// Reset their team
-							playerManager.netprops.m_iPlayerTeams[playerID] = originalTeam[playerID];
-							
-							// Reset their gold
-							playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
-							playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
-						}, 1);
+						// Reset the player's team
+						resetTeamDire(playerID)
 					}
 				}
 			}
