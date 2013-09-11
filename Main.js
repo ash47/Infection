@@ -550,7 +550,7 @@ function goldPatch(client) {
 
 // Allows zombies to see this unit
 function trueSight(unit) {
-	if(!unit) return;
+	if(!unit || !DIRE_ANCIENT) return;
 	
 	// Add thirst modifier
 	dota.addNewModifier(unit, DIRE_ANCIENT.trueSight, 'modifier_bloodseeker_thirst_vision', "bloodseeker_thirst", {duration:36000});
