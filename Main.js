@@ -212,13 +212,13 @@ function onHeroSpawn(hero) {
 		// Check if this player is infected
 		if(isInfected[playerID]) {
 			// Tell the client what's going on
-			client.printToChat('You will turn into a zombie in '+ZOMBIE_INFECT_DELAY+' seconds!');
+			client.printToChat('You will turn into a zombie in '+ZOMBIE_INFECT_DELAY+' seconds!');
 			
 			// Add a warning timer
 			timers.setTimeout(function() {
 				// Make sure they haven't changed into a zombie already
 				if(!isZombie[playerID]) {
-					client.printToChat('You are about to change into a zombie!!!');
+					client.printToChat('You are about to change into a zombie!!!');
 				}
 			}, 1000 * (ZOMBIE_INFECT_DELAY - 3));
 			
@@ -240,7 +240,7 @@ function onHeroSpawn(hero) {
 			// Check if they've already seen it
 			if(!objectiveShownTo[playerID]) {
 				// Remind them about the objectives
-				client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
+				client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
 				
 				// Store that we've seen it now
 				objectiveShownTo[playerID] = true;
@@ -304,7 +304,7 @@ function onHeroPicked(client, heroName){
 				// Tell them they are infected
 				var c = dota.findClientByPlayerID(zombieID);
 				if(c) {
-					c.printToChat('You\'ve been infected with a DEADLY virus!');
+					c.printToChat('You\'ve been infected with a DEADLY virus and will turn into a zombie!');
 					c.printToChat('Try to stand near someone so you can eat their brains, or run back towards the dire base so you don\'t feed the humans!');
 					c.printToChat('Type -zombie to change instantly!');
 				}
@@ -329,8 +329,8 @@ function onHeroPicked(client, heroName){
 			toldPlayers[playerID] = true;
 			
 			// Tell them
-			client.printToChat('CAREFUL: If you die, you will become a zombie!');
-			client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
+			client.printToChat('CAREFUL: If you die, you will become a zombie!');
+			client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
 		}
 	}
 	
@@ -385,7 +385,7 @@ function onGameFrame(){
 		}
 		
 		// Check if zombies outnumber humans
-		var ratio = totalZombies - totalHumans;
+		var ratio = totalZombies - totalHumans + 9;
 		if(ratio < 0) return;
 		
 		// Change the ratio
@@ -534,31 +534,33 @@ function CmdZ(client) {
 
 var patchedGold = {};
 function goldPatch(client) {
-	if(!client) return;
-	
-	var playerID = client.netprops.m_iPlayerID;
-	if (playerID == -1) return;
-	
-	// Make sure it only runs once for each player
-	if(patchedGold[playerID]) return;
-	patchedGold[playerID] = true;
-	
-	// Set their unreliable gold right up
-	playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = 2306;
-	playerManager.netprops.m_iUnreliableGoldDire[playerID] =  2306;
+	timers.setTimeout(function() {
+		if(!client || !client.isValid()) return;
+		
+		var playerID = client.netprops.m_iPlayerID;
+		if (playerID == -1) return;
+		
+		// Make sure it only runs once for each player
+		if(patchedGold[playerID]) return;
+		patchedGold[playerID] = true;
+		
+		// Set their unreliable gold right up
+		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] += 2397;
+		playerManager.netprops.m_iUnreliableGoldDire[playerID] +=  2397;
+	}, 1000);
 }
 
 // Allows zombies to see this unit
 function trueSight(unit) {
-	if(!unit || !DIRE_ANCIENT) return;
+	if(!unit || !unit.isValid() || !DIRE_ANCIENT || !DIRE_ANCIENT.isValid() || !DIRE_ANCIENT.trueSight || !DIRE_ANCIENT.trueSight.isValid()) return;
 	
 	// Add thirst modifier
-	dota.addNewModifier(unit, DIRE_ANCIENT.trueSight, 'modifier_bloodseeker_thirst_vision', "bloodseeker_thirst", {duration:36000});
+	dota.addNewModifier(unit, DIRE_ANCIENT.trueSight, 'modifier_bloodseeker_thirst_vision', "bloodseeker_thirst", {});
 }
 
 // Removes truesight on a unit
 function removeTrueSight(unit) {
-	if(!unit) return;
+	if(!unit || !unit.isValid()) return;
 	
 	// Remove thirst from this unit
 	dota.removeModifier(unit, 'modifier_bloodseeker_thirst_vision');
@@ -730,7 +732,7 @@ function zombieFairnessTest() {
 		// Tell them they are infected
 		var c = dota.findClientByPlayerID(newZombieID);
 		if(c) {
-			c.printToChat('You\'ve been infected! You will turn into a zombie in 30 seconds!');
+			c.printToChat('You\'ve been infected! You will turn into a zombie in 30 seconds!');
 			c.printToChat('Type -zombie to change instantly!');
 			
 			// Add a warning timer
@@ -1077,7 +1079,7 @@ function becomeZombie(hero) {
 	hero.mutatorSkill.netprops.m_iLevel = 3;
 	
 	// Apply zombie ult
-	dota.addNewModifier(hero, hero.mutatorSkill, 'modifier_undying_flesh_golem', "undying_flesh_golem", {duration:36000});	// Apply this first so we get the correct model
+	dota.addNewModifier(hero, hero.mutatorSkill, 'modifier_undying_flesh_golem', "undying_flesh_golem", {});	// Apply this first so we get the correct model
 	
 	// Store that this hero is a zombie
 	isZombie[client.netprops.m_iPlayerID] = true;
