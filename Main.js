@@ -134,6 +134,7 @@ function onMapStart() {
 	dota.loadParticleFile('particles/units/heroes/hero_centaur.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_furion.pcf');
 	dota.loadParticleFile('particles/units/heroes/hero_treant.pcf');
+	dota.loadParticleFile('particles/units/heroes/hero_kunkka.pcf');
 	
 	game.precacheModel('models/heroes/undying/undying_flesh_golem.mdl');
 	game.precacheModel('models/heroes/undying/undying_minion.mdl');
@@ -455,7 +456,8 @@ function onClientPutInServer(client) {
 		// Check if they are a zombie
 		if(isZombie[playerID]) {
 			// Grab pos
-			var pos = DIRE_ANCIENT.netprops.m_vecOrigin
+			var pos = DIRE_ANCIENT.netprops.m_vecOrigin;
+			if(!pos) return;
 			
 			// Turn them into a zombie
 			var heroes = client.getHeroes();
@@ -518,6 +520,53 @@ function CmdZombie(client) {
 		}
 	}
 }
+
+/*var particleFX = null;
+
+console.addClientCommand('pa', function(client, args) {
+	var heroes = client.getHeroes();
+	for(var hh in heroes) {
+		var hero = heroes[hh];
+		
+		server.print('particles');
+		dota.loadParticleFile('particles/units/heroes/hero_viper.pcf');
+		
+		if (args.length >= 0) {
+			// Remove existing FX
+			if (particleFX) {
+				for (var i = 0; i < server.clients.length; i++) {
+					if (server.clients[i]) {
+						dota.destroyParticle(server.clients[i], particleFX, false);
+					}
+				}
+			}
+			
+			var part = 'venomancer_poison_debuff_nova';
+			if (part) {
+				dota.loadParticleFile('particles/units/heroes/hero_venomancer.pcf');
+				particleFX = dota.createParticleEffect(hero, part, 1);
+				
+				var attachPt = "attach_static";
+				if (args.length >= 1) attachPt = args[0];
+				var ctrlPt = 0;
+				//if (part.points) ctrlPt = part.points - 1;
+				if (args.length >= 2) ctrlPt = parseInt(args[1]);
+				var unknwn = 0;
+				if (args.length >= 3) unknwn = parseInt(args[2]);
+				var type = 0;
+				if (args.length >= 4) type = parseInt(args[3]);
+				
+				//dota.setParticleControlEnt(unit:Entity, controlPoint:Int, unknown:Int, attachPoint:String, attachType:Int, index:Int)
+				for (var i=0;i<=ctrlPt;i++){
+					dota.setParticleControlEnt(hero, i, unknwn, attachPt, type, particleFX);
+					client.printToChat("Particle: "+part+" Attach: "+attachPt+" ctrlPt: "+i+" unknown: "+unknwn+" type: "+type);
+				}
+			} else {
+				client.printToChat("Particle index not found");
+			}
+		}
+	}
+});*/
 
 function CmdZ(client) {
 	var playerID = client.netprops.m_iPlayerID;
@@ -737,6 +786,8 @@ function zombieFairnessTest() {
 			
 			// Add a warning timer
 			timers.setTimeout(function() {
+				if(!c || !c.isInGame) return;
+				
 				// Make sure they haven't changed into a zombie already
 				if(!isZombie[playerID]) {
 					c.printToChat('You are about to change into a zombie!!!');
@@ -753,6 +804,7 @@ function zombieFairnessTest() {
 					// Turn all their heroes into zombies
 					for(var hh in heroes) {
 						var hero = heroes[hh];
+						if(!hero) continue;
 						
 						// Become a zombie!
 						becomeZombie(hero);

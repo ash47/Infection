@@ -377,6 +377,8 @@ function randomFromInterval(from,to) {
 
 // Calculates the distance between two vectors (not taking into account for z)
 function vecDist(vec1, vec2) {
+	if(!vec1 || !vec2) return 1000000;
+	
 	var xx = (vec1.x - vec2.x);
 	var yy = (vec1.y - vec2.y);
 	
