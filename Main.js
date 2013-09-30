@@ -7,7 +7,7 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = false;
+var singlePlayer = true;
 var addSinglePlayerBots = false;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
 var forceZombieID = -1;				// Which player to force as a zombie
@@ -33,11 +33,16 @@ game.hookEvent("dota_player_gained_level", onPlayerGainedLevel);
 console.addClientCommand('zombie', CmdZombie);
 console.addClientCommand('z', CmdZ);
 
+// Colors
+var color_red = '\x12';
+var color_light_green = '\x15';
+
 // Store mid towers on dire team
 var tower1, tower2, tower3;
 
 // CV we need to force mid only (taken from mid only gamemode)
 var cvForceGameMode = console.findConVar("dota_force_gamemode");
+cvForceGameMode.setInt(11);
 
 // To look at gold etc
 var playerManager;
@@ -213,13 +218,13 @@ function onHeroSpawn(hero) {
 		// Check if this player is infected
 		if(isInfected[playerID]) {
 			// Tell the client what's going on
-			client.printToChat('You will turn into a zombie in '+ZOMBIE_INFECT_DELAY+' seconds!');
+			client.printToChat(color_red+'You will turn into a zombie in '+ZOMBIE_INFECT_DELAY+' seconds!');
 			
 			// Add a warning timer
 			timers.setTimeout(function() {
 				// Make sure they haven't changed into a zombie already
 				if(!isZombie[playerID]) {
-					client.printToChat('You are about to change into a zombie!!!');
+					client.printToChat(color_red+'You are about to change into a zombie!!!');
 				}
 			}, 1000 * (ZOMBIE_INFECT_DELAY - 3));
 			
@@ -241,7 +246,7 @@ function onHeroSpawn(hero) {
 			// Check if they've already seen it
 			if(!objectiveShownTo[playerID]) {
 				// Remind them about the objectives
-				client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
+				client.printToChat(color_red+'TIP: '+color_light_green+'Type -o for a list of objectives to complete as a human.');
 				
 				// Store that we've seen it now
 				objectiveShownTo[playerID] = true;
@@ -305,7 +310,7 @@ function onHeroPicked(client, heroName){
 				// Tell them they are infected
 				var c = dota.findClientByPlayerID(zombieID);
 				if(c) {
-					c.printToChat('You\'ve been infected with a DEADLY virus and will turn into a zombie!');
+					c.printToChat(color_red+'You\'ve been infected with a DEADLY virus and will turn into a zombie!');
 					c.printToChat('Try to stand near someone so you can eat their brains, or run back towards the dire base so you don\'t feed the humans!');
 					c.printToChat('Type -zombie to change instantly!');
 				}
@@ -330,8 +335,8 @@ function onHeroPicked(client, heroName){
 			toldPlayers[playerID] = true;
 			
 			// Tell them
-			client.printToChat('CAREFUL: If you die, you will become a zombie!');
-			client.printToChat('TIP: Type -o for a list of objectives to complete as a human.');
+			client.printToChat(color_red+'CAREFUL: '+color_light_green+'If you die, you will become a zombie!');
+			client.printToChat(color_red+'TIP: '+color_light_green+'Type -o for a list of objectives to complete as a human.');
 		}
 	}
 	
@@ -461,7 +466,7 @@ function onClientPutInServer(client) {
 			
 			// Turn them into a zombie
 			var heroes = client.getHeroes();
-			for(var hh in heroes) {
+			for(var hh=0; hh<heroes.length; hh++) {
 				var hero = heroes[hh];
 				
 				// Turn into a zombie
@@ -486,7 +491,7 @@ function onClientDisconnect(client) {
 	
 	// Turn them into a zombie
 	var heroes = client.getHeroes();
-	for(var hh in heroes) {
+	for(var hh=0; hh<heroes.length; hh++) {
 		var hero = heroes[hh];
 		
 		// Turn into a zombie
@@ -512,7 +517,7 @@ function CmdZombie(client) {
 	if(isInfected[playerID] != null && !isZombie[playerID]) {
 		var heroes = client.getHeroes();
 		
-		for(var hh in heroes) {
+		for(var hh=0; hh<heroes.length; hh++) {
 			var hero = heroes[hh];
 			
 			// Turn into a zombie
@@ -525,7 +530,7 @@ function CmdZombie(client) {
 
 console.addClientCommand('pa', function(client, args) {
 	var heroes = client.getHeroes();
-	for(var hh in heroes) {
+	for(var hh=0; hh<heroes.length; hh++) {
 		var hero = heroes[hh];
 		
 		server.print('particles');
@@ -594,8 +599,7 @@ function goldPatch(client) {
 		patchedGold[playerID] = true;
 		
 		// Set their unreliable gold right up
-		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] += 2397;
-		playerManager.netprops.m_iUnreliableGoldDire[playerID] +=  2397;
+		giveGold(playerID, 2397);
 	}, 1000);
 }
 
@@ -636,8 +640,11 @@ function becomeDire(client) {
 		originalTeam[playerID] = playerManager.netprops.m_iPlayerTeams[playerID];
 	}
 	
+	// Set their team
+	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_DIRE;
+	
 	var heroes = client.getHeroes();
-	for(var hh in heroes) {
+	for(var hh=0; hh<heroes.length; hh++) {
 		var hero = heroes[hh];
 		if(!hero) continue;
 		
@@ -667,8 +674,11 @@ function becomeRadiant(client) {
 		originalTeam[playerID] = playerManager.netprops.m_iPlayerTeams[playerID];
 	}
 	
+	// Set their team
+	playerManager.netprops.m_iPlayerTeams[playerID] = dota.TEAM_RADIANT;
+	
 	var heroes = client.getHeroes();
-	for(var hh in heroes) {
+	for(var hh=0; hh<heroes.length; hh++) {
 		var hero = heroes[hh];
 		if(!hero) continue;
 		
@@ -781,7 +791,7 @@ function zombieFairnessTest() {
 		// Tell them they are infected
 		var c = dota.findClientByPlayerID(newZombieID);
 		if(c) {
-			c.printToChat('You\'ve been infected! You will turn into a zombie in 30 seconds!');
+			c.printToChat(color_red+'You\'ve been infected! You will turn into a zombie in 30 seconds!');
 			c.printToChat('Type -zombie to change instantly!');
 			
 			// Add a warning timer
@@ -802,7 +812,7 @@ function zombieFairnessTest() {
 				// Make sure they haven't turned already
 				if(!isZombie[playerID]) {
 					// Turn all their heroes into zombies
-					for(var hh in heroes) {
+					for(var hh=0; hh<heroes.length; hh++) {
 						var hero = heroes[hh];
 						if(!hero) continue;
 						
@@ -825,8 +835,8 @@ function resetTeamRadiant(playerID) {
 		playerManager.netprops.m_iPlayerTeams[playerID] = originalTeam[playerID];
 		
 		// Reset their gold
-		playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
-		playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
+		//playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
+		//playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
 	}, 1);
 }
 
@@ -837,8 +847,8 @@ function resetTeamDire(playerID) {
 		playerManager.netprops.m_iPlayerTeams[playerID] = originalTeam[playerID];
 		
 		// Reset their gold
-		playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
-		playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+		//playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
+		//playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
 	}, 1);
 }
 
@@ -849,7 +859,7 @@ function onEntityHurt(event) {
 	// Grab the ent's HP
 	var entHP = ent.netprops.m_iHealth;
 	
-	if(entHP <= 0) {
+	/*if(entHP <= 0) {
 		// Loop over all clients
 		for(var i=0;i<server.clients.length;i++) {
 			// Grab client
@@ -871,15 +881,15 @@ function onEntityHurt(event) {
 					
 					if(team == dota.TEAM_DIRE) {
 						// Copy their gold into their other team's slot
-						playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
-						playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
+						//playerManager.netprops.m_iReliableGoldDire[playerID] = playerManager.netprops.m_iReliableGoldRadiant[playerID];
+						//playerManager.netprops.m_iUnreliableGoldDire[playerID] = playerManager.netprops.m_iUnreliableGoldRadiant[playerID];
 						
 						// Reset this player's team
 						resetTeamRadiant(playerID);
 					} else if(team == dota.TEAM_RADIANT) {
 						// Copy their gold into their other team's slot
-						playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
-						playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
+						//playerManager.netprops.m_iReliableGoldRadiant[playerID] = playerManager.netprops.m_iReliableGoldDire[playerID];
+						//playerManager.netprops.m_iUnreliableGoldRadiant[playerID] = playerManager.netprops.m_iUnreliableGoldDire[playerID];
 						
 						// Reset the player's team
 						resetTeamDire(playerID)
@@ -887,7 +897,7 @@ function onEntityHurt(event) {
 				}
 			}
 		}
-	}
+	}*/
 	
 	if(entHP <= 0) {
 		// Remove reference if it is a tower
@@ -936,7 +946,7 @@ function onEntityHurt(event) {
 				
 				// Respawn them after 2 seconds
 				timers.setTimeout(function() {
-					for(var hh in heroes) {
+					for(var hh=0; hh<heroes.length; hh++) {
 						var hero = heroes[hh];
 						
 						hero.netprops.m_flRespawnTime = gametime + 2;
@@ -947,7 +957,7 @@ function onEntityHurt(event) {
 				
 				// Search for aegis
 				aegisLoop:
-				for(var hh in heroes) {
+				for(var hh=0; hh<heroes.length; hh++) {
 					var hero = heroes[hh];
 					
 					// Seach inventory slots
@@ -977,7 +987,7 @@ function onEntityHurt(event) {
 					return;
 				}
 				
-				for(var hh in heroes) {
+				for(var hh=0; hh<heroes.length; hh++) {
 					var hero = heroes[hh];
 					
 					// Strip all items
@@ -1017,7 +1027,7 @@ function onPlayerGainedLevel(event) {
 		// Check if this client is a zombie
 		if(client && isZombie[client.netprops.m_iPlayerID]) {
 			var heroes = client.getHeroes();
-			for(var hh in heroes) {
+			for(var hh=0; hh<heroes.length; hh++) {
 				var hero = heroes[hh];
 				
 				// Update stats
@@ -1028,8 +1038,7 @@ function onPlayerGainedLevel(event) {
 }
 
 function giveGold(playerID, amount) {
-	playerManager.netprops.m_iUnreliableGoldRadiant[playerID] += amount;
-	playerManager.netprops.m_iUnreliableGoldDire[playerID] +=  amount;
+	dota.givePlayerGold(playerID, amount, false);
 }
 
 var leapSkills = new Array(
@@ -1254,7 +1263,7 @@ timers.setInterval(function() {
 		// Check if this client is a zombie
 		if(isZombie[playerID] && !isAlphaZombie[playerID]) {
 			var heroes = client.getHeroes();
-			for(var hh in heroes) {
+			for(var hh=0; hh<heroes.length; hh++) {
 				var hero = heroes[hh];
 				
 				// Remove all items
@@ -1284,7 +1293,7 @@ timers.setInterval(function() {
 		if(!client) continue;
 		
 		var heroes = client.getHeroes();
-		for(var hh in heroes) {
+		for(var hh=0; hh<heroes.length; hh++) {
 			var hero = heroes[hh];
 			
 			// Grab it's level
@@ -1304,7 +1313,7 @@ timers.setInterval(function() {
 		if(!client) continue;
 		
 		var heroes = client.getHeroes();
-		for(var hh in heroes) {
+		for(var hh=0; hh<heroes.length; hh++) {
 			var hero = heroes[hh];
 			
 			// Check if this client is a zombie

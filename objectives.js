@@ -58,7 +58,7 @@ var objectives = new Array(
 			
 			// Cycle all heroes of this client
 			var heroes = client.getHeroes();
-			for(var hh in heroes) {
+			for(var hh=0; hh<heroes.length; hh++) {
 				var hero = heroes[hh];
 				if(!hero || !hero.isValid()) continue;
 				
@@ -119,7 +119,7 @@ var objectives = new Array(
 										var heroes = c.getHeroes();
 										
 										// Grab each hero of the client
-										for(var hh in heroes) {
+										for(var hh=0; hh<heroes.length; hh++) {
 											var hero = heroes[hh];
 											
 											// Add stats
@@ -171,7 +171,7 @@ var objectives = new Array(
 							var heroes = c.getHeroes();
 							
 							// Grab each hero of the client
-							for(var hh in heroes) {
+							for(var hh=0; hh<heroes.length; hh++) {
 								var hero = heroes[hh];
 								
 								// Add stats
@@ -225,7 +225,7 @@ var objectives = new Array(
 				var heroes = c.getHeroes();
 				
 				// Grab each hero of the client
-				for(var hh in heroes) {
+				for(var hh=0; hh<heroes.length; hh++) {
 					var hero = heroes[hh];
 					
 					if(vecDist(hero.netprops.m_vecOrigin, obj.insidePos) < obj.insideDist) {
@@ -288,7 +288,7 @@ var objectives = new Array(
 						var heroes = c.getHeroes();
 						
 						// Grab each hero of the client
-						for(var hh in heroes) {
+						for(var hh=0; hh<heroes.length; hh++) {
 							var hero = heroes[hh];
 							
 							// Add stats
@@ -390,7 +390,7 @@ if(singlePlayer) {
 	console.addClientCommand('pos', function(client, args) {
 		var heroes = client.getHeroes();
 		
-		for(var hh in heroes) {
+		for(var hh=0; hh<heroes.length; hh++) {
 			var hero = heroes[hh];
 			
 			server.print(hero.netprops.m_vecOrigin);
@@ -411,7 +411,7 @@ if(singlePlayer) {
 		// Grab list of heroes
 		var heroes = client.getHeroes();
 		
-		for(var hh in heroes) {
+		for(var hh=0; hh<heroes.length; hh++) {
 			var hero = heroes[hh];
 			
 			dota.giveItemToHero('item_aegis', hero)
