@@ -7,7 +7,7 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = true;
+var singlePlayer = false;
 var addSinglePlayerBots = false;
 var spawnAsZombie = false;			// Do you want to spawn as the zombie?
 var forceZombieID = -1;				// Which player to force as a zombie
@@ -196,6 +196,11 @@ function onHeroSpawn(hero) {
 		// Teleport the hero on the next frame, if we didn't wait until the next frame,
 		//    dota would teleport them back to the fountain :(
 		timers.setTimeout(function() {
+			// Grab towers
+			tower1 = game.findEntityByTargetname('dota_badguys_tower1_mid');
+			tower2 = game.findEntityByTargetname('dota_badguys_tower2_mid');
+			tower3 = game.findEntityByTargetname('dota_badguys_tower3_mid');
+			
 			// Check if the tower is still valid
 			if(tower1) {
 				dota.findClearSpaceForUnit(hero, tower2.netprops.m_vecOrigin);
