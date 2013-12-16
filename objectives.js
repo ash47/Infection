@@ -1,3 +1,7 @@
+var settings = require('settings.js').s;
+var timers = require('timers');
+var isZombie = require('zombie.js').isZombie;
+
 // List of objectives
 var objectives = new Array(
 // Pickup 15 Gems
@@ -23,34 +27,42 @@ var objectives = new Array(
 			y2: -1426
 		});
 		
-		// Spawn all gems
-		obj.poses = new Array();
-		for(var i=0; i<itemTotal;i++) {
-			// Grab a pos range
-			var pos = getRandomArray(poses);
-			
-			// Pick a position for it
-			var xp = randomFromInterval(pos.x1, pos.x2);
-			var yp = randomFromInterval(pos.y1, pos.y2);
-			
-			// Spawn an item into a random position
-			var item = dota.createItemDrop(DIRE_ANCIENT, 'item_gem', xp, yp, 256);
-			
-			// Grab the position is actually spawned at
-			var itemPos = item.netprops.m_vecOrigin;
-			
-			// Store where it spawned
-			obj.poses.push({
-				x: itemPos.x,
-				y: itemPos.y,
-				z: itemPos.z
-			});
+		var dire_ancient = game.findEntityByTargetname('dota_badguys_fort');
+		if(dire_ancient != null && dire_ancient.isValid()) {
+			// Spawn all gems
+			obj.poses = new Array();
+			for(var i=0; i<itemTotal;i++) {
+				// Grab a pos range
+				var pos = getRandomArray(poses);
+				
+				// Pick a position for it
+				var xp = randomFromInterval(pos.x1, pos.x2);
+				var yp = randomFromInterval(pos.y1, pos.y2);
+				
+				
+				
+				// Spawn an item into a random position
+				var item = dota.createItemDrop(dire_ancient, 'item_gem', xp, yp, 256);
+				
+				// Grab the position is actually spawned at
+				var itemPos = item.netprops.m_vecOrigin;
+				
+				// Store where it spawned
+				obj.poses.push({
+					x: itemPos.x,
+					y: itemPos.y,
+					z: itemPos.z
+				});
+			}
 		}
 		
 		// Store how many are left
 		obj.totalRemaining = itemTotal;
 	},
 	gameFrame: function(obj) {
+		var dire_ancient = game.findEntityByTargetname('dota_badguys_fort');
+		if(dire_ancient == null || !dire_ancient.isValid()) return;
+		
 		// Cycle all clients
 		for(var i=0;i<server.clients.length;i++) {
 			var client = server.clients[i];
@@ -66,7 +78,7 @@ var objectives = new Array(
 				for(var j=0;j<14;j++) {
 					var itemSlot = hero.netprops.m_hItems[j];
 					if(itemSlot) {
-						if(itemSlot.netprops.m_hPurchaser == DIRE_ANCIENT) {
+						if(itemSlot.netprops.m_hPurchaser == dire_ancient) {
 							// Delete the item
 							dota.remove(itemSlot);
 							
@@ -91,13 +103,20 @@ var objectives = new Array(
 								}
 								
 								// Respawn the item
-								dota.createItemDrop(DIRE_ANCIENT, 'item_gem', realPos);
+								dota.createItemDrop(dire_ancient, 'item_gem', realPos);
 								
 								// Tell this client they aren't allowed to pick it up
 								client.printToChat('You can\'t pickup human items.');
 							}else {
 								// Remove one
 								obj.totalRemaining -= 1;
+								
+								// Change objective
+								if(obj.totalRemaining != 1) {
+									obj.name = 'Pickup '+obj.totalRemaining+' gems';
+								} else {
+									obj.name = 'Pickup 1 gem';
+								}
 								
 								// Check if we've found all gems
 								if(obj.totalRemaining == 0) {
@@ -110,7 +129,11 @@ var objectives = new Array(
 									if(!c || !c.isInGame()) continue;
 									
 									// Print message
-									c.printToChat('A gem was found! +1 stats to all humans!');
+									if(obj.totalRemaining != 1) {
+										c.printToChat('A gem was found! +1 stats to all humans! '+obj.totalRemaining+' gems to go!');
+									} else {
+										c.printToChat('A gem was found! +1 stats to all humans! 1 gem to go!');
+									}
 									
 									// Make sure this client isn't a zombie
 									var playerID = c.netprops.m_iPlayerID;
@@ -309,7 +332,7 @@ game.hook('OnMapStart', onMapStart);
 game.hook("OnGameFrame", onGameFrame);
 
 // Add command to access objectives
-console.addClientCommand('o', CmdO);
+console.addClientCommand('obj', CmdO);
 
 // Command to access objectives
 function CmdO(client, args) {
@@ -386,7 +409,7 @@ function vecDist(vec1, vec2) {
 }
 
 // Some useful dev commands for singleplayer
-if(singlePlayer) {
+if(settings.singlePlayer) {
 	console.addClientCommand('pos', function(client, args) {
 		var heroes = client.getHeroes();
 		

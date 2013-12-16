@@ -7,10 +7,7 @@ Turn this on if you want to test by yourself, and turn
 NOTE: The icons at the top don't show the correct teams
 */
 
-var singlePlayer = false;
-var addSinglePlayerBots = false;
-var spawnAsZombie = false;			// Do you want to spawn as the zombie?
-var forceZombieID = -1;				// Which player to force as a zombie
+var settings = require('settings.js').s;
 
 // Grab libraries
 var timers = require('timers');
@@ -31,7 +28,7 @@ game.hookEvent("dota_player_gained_level", onPlayerGainedLevel);
 
 // Add console commands
 console.addClientCommand('zombie', CmdZombie);
-console.addClientCommand('z', CmdZ);
+console.addClientCommand('zom', CmdZ);
 
 // Colors
 var color_red = '\x12';
@@ -49,7 +46,7 @@ var playerManager;
 
 // Stuff we need to store who can be / is the zombie
 var zombieID = -1;
-var isZombie = {};
+var isZombie = require('zombie.js').isZombie;
 var isInfected = {};
 var wantsToBeInfected = new Array();
 var isAlphaZombie = {};
@@ -65,10 +62,6 @@ var originalTeam = {};
 // Stores if we've told this player how to play
 var toldPlayers = {};
 
-// We need to store radiants ancient
-var DIRE_ANCIENT;
-var RADIANT_ANCIENT;
-
 var ZOMBIE_INFECT_DELAY = 60;	// Delay before infection takes someone over (in seconds)
 
 // Load objectives
@@ -79,7 +72,7 @@ var goldTimer;
 var goldOnce = false;
 
 // Spawn bots if in single player
-if(singlePlayer && addSinglePlayerBots) {
+if(settings.singlePlayer && settings.addSinglePlayerBots) {
 	game.hook("OnGameFrame", onGameFrameBots);
 	var cvAddBots = console.findConVar("dota_fill_empty_slots_with_bots");
 	
@@ -107,11 +100,10 @@ plugin.get('LobbyManager', function(obj){
 
 function onMapStart() {
 	// Store dire's ancient
-	DIRE_ANCIENT = game.findEntityByTargetname('dota_badguys_fort');
-	RADIANT_ANCIENT = game.findEntityByTargetname('dota_goodguys_fort');
+	var dire_ancient = game.findEntityByTargetname('dota_badguys_fort');
 	
 	// Add bloodlust to the ancient
-	DIRE_ANCIENT.trueSight = dota.createAbility(DIRE_ANCIENT, 'bloodseeker_thirst');
+	dire_ancient.trueSight = dota.createAbility(dire_ancient, 'bloodseeker_thirst');
 	
 	// Stop undying from being picked
 	dota.setHeroAvailable(85 , false);
@@ -155,7 +147,7 @@ function onMapStart() {
 	}
 	
 	// Print warning to console
-	if(singlePlayer) {
+	if(settings.singlePlayer) {
 		server.print('===\n\n\nWARNING: Singleplayer mode is active!\n\n\n===');
 	}
 	
@@ -251,7 +243,7 @@ function onHeroSpawn(hero) {
 			// Check if they've already seen it
 			if(!objectiveShownTo[playerID]) {
 				// Remind them about the objectives
-				client.printToChat(color_red+'TIP: '+color_light_green+'Type -o for a list of objectives to complete as a human.');
+				client.printToChat(color_red+'TIP: '+color_light_green+'Type -obj for a list of objectives to complete as a human.');
 				
 				// Store that we've seen it now
 				objectiveShownTo[playerID] = true;
@@ -300,12 +292,12 @@ function onHeroPicked(client, heroName){
 			zombieID = possibleZombies[Math.floor((Math.random()*possibleZombies.length))];
 			
 			// Change the zombie to player0 if that dev option is selected
-			if(singlePlayer && spawnAsZombie) {
+			if(settings.singlePlayer && settings.spawnAsZombie) {
 				zombieID = 0;
 			}
 			
 			// Only spawn them as a zombie if it isn't single player mode
-			if(!singlePlayer || spawnAsZombie) {
+			if(!settings.singlePlayer || settings.spawnAsZombie) {
 				// Store that this client is a zombie
 				isInfected[zombieID] = true;
 				
@@ -341,7 +333,7 @@ function onHeroPicked(client, heroName){
 			
 			// Tell them
 			client.printToChat(color_red+'CAREFUL: '+color_light_green+'If you die, you will become a zombie!');
-			client.printToChat(color_red+'TIP: '+color_light_green+'Type -o for a list of objectives to complete as a human.');
+			client.printToChat(color_red+'TIP: '+color_light_green+'Type -obj for a list of objectives to complete as a human.');
 		}
 	}
 	
@@ -399,9 +391,6 @@ function onGameFrame(){
 		var ratio = totalZombies - totalHumans + 9;
 		if(ratio < 0) return;
 		
-		// Change the ratio
-		ratio *= 2;
-		
 		// Give gold
 		for (var i = 0; i < server.clients.length; ++i) {
 			var client = server.clients[i];
@@ -412,7 +401,18 @@ function onGameFrame(){
 			
 			// Make sure they aren't a zombie
 			if(!isZombie[playerID]) {
-				giveGold(playerID, ratio);
+				giveGold(playerID, ratio*2);
+				
+				// Give EXP
+				var heroes = client.getHeroes();
+				for(var hh=0; hh<heroes.length; hh++) {
+					var hero = heroes[hh];
+					
+					// Validate hero
+					if(hero && hero.isValid() && hero.isHero() && !dota.hasModifier(hero, 'modifier_illusion')) {
+						dota.giveExperienceToHero(hero, ratio);
+					}
+				}
 			}
 		}
 	}
@@ -466,7 +466,11 @@ function onClientPutInServer(client) {
 		// Check if they are a zombie
 		if(isZombie[playerID]) {
 			// Grab pos
-			var pos = DIRE_ANCIENT.netprops.m_vecOrigin;
+			
+			var dire_ancient = game.findEntityByTargetname('dota_badguys_fort');
+			if(dire_ancient == null || !dire_ancient.isValid()) return;
+			
+			var pos = dire_ancient.netprops.m_vecOrigin;
 			if(!pos) return;
 			
 			// Turn them into a zombie
@@ -482,7 +486,7 @@ function onClientPutInServer(client) {
 			}
 		} else {
 			// Tell them about being a volunteer
-			client.printToChat('Type -z to volunteer to be the zombie!');
+			client.printToChat('Type -zom to volunteer to be the zombie!');
 		}
 	}, 1000);
 }
@@ -610,10 +614,13 @@ function goldPatch(client) {
 
 // Allows zombies to see this unit
 function trueSight(unit) {
-	if(!unit || !unit.isValid() || !DIRE_ANCIENT || !DIRE_ANCIENT.isValid() || !DIRE_ANCIENT.trueSight || !DIRE_ANCIENT.trueSight.isValid()) return;
+	var dire_ancient = game.findEntityByTargetname('dota_badguys_fort');
+	if(dire_ancient == null || !dire_ancient.isValid()) return;
+	
+	if(!unit || !unit.isValid() || !dire_ancient.trueSight || !dire_ancient.trueSight.isValid()) return;
 	
 	// Add thirst modifier
-	dota.addNewModifier(unit, DIRE_ANCIENT.trueSight, 'modifier_bloodseeker_thirst_vision', "bloodseeker_thirst", {});
+	dota.addNewModifier(unit, dire_ancient.trueSight, 'modifier_bloodseeker_thirst_vision', "bloodseeker_thirst", {}, dire_ancient);
 }
 
 // Removes truesight on a unit
@@ -720,8 +727,6 @@ function courierFix() {
 			}
 		}
 	}
-	
-	
 }
 
 // Puts them back onto their original team
@@ -801,7 +806,7 @@ function zombieFairnessTest() {
 			
 			// Add a warning timer
 			timers.setTimeout(function() {
-				if(!c || !c.isInGame) return;
+				if(!c || !c.isInGame()) return;
 				
 				// Make sure they haven't changed into a zombie already
 				if(!isZombie[playerID]) {
@@ -929,7 +934,8 @@ function onEntityHurt(event) {
 	if(ent.isHero()) {
 		// Check if they will die as a result of this
 		if(entHP == 0) {
-			if(ent.netprops.m_bIsIllusion) return;
+			// No illusions
+			if(dota.hasModifier(ent, 'modifier_illusion')) return;
 			
 			var playerID = ent.netprops.m_iPlayerID;
 			if(playerID == -1) return;
@@ -1145,7 +1151,7 @@ function becomeZombie(hero) {
 	hero.mutatorSkill.netprops.m_iLevel = 3;
 	
 	// Apply zombie ult
-	dota.addNewModifier(hero, hero.mutatorSkill, 'modifier_undying_flesh_golem', "undying_flesh_golem", {});	// Apply this first so we get the correct model
+	dota.addNewModifier(hero, hero.mutatorSkill, 'modifier_undying_flesh_golem', "undying_flesh_golem", {}, hero);	// Apply this first so we get the correct model
 	
 	// Store that this hero is a zombie
 	isZombie[client.netprops.m_iPlayerID] = true;
@@ -1154,7 +1160,7 @@ function becomeZombie(hero) {
 	setZombieStats(hero);
 	
 	// Only end the game if it's not singleplayer
-	if(!singlePlayer) {
+	if(!settings.singlePlayer) {
 		// Check for win status
 		var total = 0;
 		for(var i=0;i<server.clients.length;i++) {
